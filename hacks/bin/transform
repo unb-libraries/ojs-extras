@@ -1,0 +1,72 @@
+#!/bin/sh
+
+########################################################################
+##
+## XSLT Transformation Script version 1.0
+## Jason Nugent - University of New Brunswick
+## Electronic Text Centre
+## Copyright 2005
+## jnugent@unb.ca
+## 
+## Revision History:  Version 1.0 (April 25, 2005)
+##    - Initial Revision
+##
+########################################################################
+
+  # define a path to a generic style sheet if none is provided
+  XSLT_SHEET=/home/journals/etc_journals/bin/basic4.xsl;
+  
+  # define our path to our java binary
+  JAVA=/usr/bin/java;
+
+  # define our path to our Saxon JAR file
+  SAXON9=/usr/local/saxon/saxon9.jar;
+
+  #define default directory for XML
+  XML_DIR=.;
+
+function usage() {
+
+  echo "";
+  echo "Usage:  $0 [stylesheet] [XMLdirectory]";
+  echo " ";
+  echo " Examples: ";
+  echo " ";
+  echo " $0 /home/journals/etc_journals/bin/basic4.xsl . ";
+  echo " $0 stylesheet.xsl /www/Texts/xml";
+  echo " ";
+  echo "Leaving all options blank and just running $0 will cause the defaults for stylesheet and"; 
+  echo "XML directories to be used.  They are currently: ";
+  echo "Stylesheet: $XSLT_SHEET";
+  echo "XML Directory: $XML_DIR";
+  echo "";
+}
+
+
+  case $# in
+
+    0) ;;
+
+
+   1)  usage
+       exit
+       ;;  
+
+   2) XSLT_SHEET="$1";
+      XML_DIR="$2";
+      ;; 
+
+   *) usage 
+      exit 
+      ;;
+
+  esac
+
+  for i in `ls *.xml`
+    do
+      BASE_NAME=`echo $i | cut -d . -f 1`
+      echo "Now transforming ${BASE_NAME}.xml -->";
+      $JAVA -jar $SAXON9 -t -w0 $i $XSLT_SHEET > ${BASE_NAME}.html
+      perl -pi -e 's/^\s*$//' ${BASE_NAME}.html
+    done
+

@@ -1,0 +1,174 @@
+#!/usr/bin/perl -w
+
+use strict;
+sub count($$);
+
+if (!defined($ARGV[0])) {
+  print "Usage:  cleanUp <filename> \n";
+  exit(0);
+}
+
+
+if (!-f $ARGV[0] || !-r $ARGV[0]) {
+  print "That's either not a file, or the permissions aren't
+  right... exiting. \n";
+  exit(0);
+}
+
+undef $/;
+
+open FILE, $ARGV[0];
+my $content = <FILE>;
+close FILE;
+
+
+# let's do all of the crap that needs to be stripped out, first.
+
+my @crap = ("<p>&#12;</p>", "<Normal>", "</Normal>", "<p/>", "&#7;", "&#11;",
+            "<WebNormal>", "</WebNormal>", "&amp;#xAD;");
+
+foreach my $piece (@crap) {
+
+   $piece = quotemeta($piece);
+   $content =~ s/$piece//g; # Hiiiiideeeeeee Hoooooooo!
+}
+
+# so much for the crap... on to the stuff that gets replaced in Spy
+
+my %spy = ("&#x201C;" => "&#x22;",
+           "&#x201D;" => "&#x22;",
+	   "&#x92; " => "&#x27;");
+
+
+foreach my $i (keys (%spy)) {
+ 
+   my $rep = $spy{$i};
+   $i = quotemeta($i);
+   $content =~ s/$i/$rep/sg;
+}
+
+
+# let's do para tags now, for numbering
+
+
+#my $number = 0;
+#$content =~ s#<para[^>]*>\s*<no>[^<]*#count(\$number, "<para id=\"pa[C]\"><no>[C]")#egs;
+
+my $number = 0;
+$content =~ s#<para[^>]*>*#count(\$number, "<para id=\"pa[C]\">")#egs;
+
+$number = 0;
+$content =~ s#(<para[^>]*>)\s*<no>[^<]*#count(\$number, "$1<no>[C]")#egs;
+
+
+# now for renvoi...
+
+$number = 0;
+$content =~ s#<renvoi[^>]*>#count(\$number, "<renvoi id=\"re1no[C]\" idref=\"no[C]\" typeref=\"note\">")#egs;
+
+
+# and now, for notes...
+
+$number = 0;
+$content =~ s#<note[^>]*>\s*<no>[^<]*#count(\$number, "<note id=\"no[C]\"><no>[C]")#egs;
+
+# last one, refbiblio
+
+$number = 0;
+$content =~ s#<refbiblio[^>]*>#count(\$number, "<refbiblio id=\"re[C]\">")#egs;
+
+# Also, liensimple.  This:
+# <liensimple id="li" xlink:href="http://website.org (http://website.org/)">http://website.org (http://website.org/)</liensimple>
+# becomes
+# <liensimple id="li###" xlink:href="http://website.org (http://website.org/)">http://website.org (http://website.org/)</liensimple>
+# where ### represents a sequential numbering of elements
+
+$number = 0;
+$content =~ s#<liensimple\s+id="li[^\"]*\"#count(\$number, "<liensimple id=\"li[C]\"")#egs;
+
+
+# now, we need to do something about images and these darned figures.  First, let's get all of the images in the document.
+# we also need to grab the context, to determine if they are figures, tables, or equations. equations don't get thumbnails,
+# and we need the id value in the figure/tableau tag to determine the filenames.
+
+my $image_xlink_xml = "";
+
+# we need to initialize some counters for numbering everything seperately.
+my $count = 0;
+
+while ($content =~ m/<(figure|tableau)\s+.*?id="([^"]+)".*?>
+                        .*?
+                      (<image\s+.*?id="(im\d+)".*?typeimage="([^"]+)".*?>)
+                       .*?
+                      <\/\1>/sxg) {
+
+    $count ++;
+#    print "\n image is $3.  the figure/table id is $2, the image id is $4, and the typeimage is $5";
+
+    my $image = $3;  
+    my $number = $2;
+    my $fig_id = $2;
+    my $image_id = $4;
+    my $type = $5;
+
+if ($type ne "equation") {
+
+    $number =~ s/[a-z]+(\d+)/$1/;
+
+    if ($type eq "figure") {
+	$type = "Figure";
+    } else { $type = "Table"; }
+
+
+
+$image_xlink_xml .= qq(
+
+                 <!-- Figure $count -->
+
+<pointeur xlink:href="${fig_id}.jpg" xlink:label="im${count}t" xlink:title="Thumbnail of $type $number" dimx="0" dimy="0" taille="0ko" typemime="image:jpeg" desc="${fig_id}.jpg" xlink:type="locator"/>
+<!-- Arc defined for viewing the thumbnail onLoad -->
+<lien xlink:type="arc" xlink:from="im${count}" xlink:to="im${count}t" xlink:show="embed" xlink:actuate="onLoad" xlink:title="Display Thumbnail of $type $number"/>
+<!-- Large image as locator -->
+<pointeur xlink:href="${fig_id}.jpg" xlink:label="im${count}n" xlink:title="Large image of $type $number" dimx="0" dimy="0" taille="0ko" typemime="image:jpeg" desc="${fig_id}.jpg" xlink:type="locator"/>
+<!-- Arc defined for viewing the large image onRequest -->
+<lien xlink:type="arc" xlink:from="im${count}" xlink:to="im${count}n" xlink:show="embed" xlink:actuate="onRequest" xlink:title="Display large image of $type $number"/>
+
+		       );
+
+} else {
+
+    $number =~ s/[a-z]+(\d+)/$1/;
+
+$image_xlink_xml .= qq(
+
+                 <!-- Figure $count -->
+
+
+<!-- Large image as locator -->
+<pointeur xlink:href="${fig_id}.jpg" xlink:label="im${count}n" xlink:title="Large image of Equation $number" dimx="0" dimy="0" taille="0ko" typemime="image:jpeg" desc="${fig_id}.jpg" xlink:type="locator"/>
+
+		       );
+
+}
+
+}
+
+
+$content =~ s/(<grlien[^>]*>)/$1\n$image_xlink_xml/;
+#print $image_xlink_xml;
+
+
+
+open FILE, ">$ARGV[0]";
+print FILE $content;
+close FILE;
+
+
+sub count($$) {
+
+    my ($countref, $string) = @_;
+    $$countref++;
+
+    $string =~ s/\[C\]/$$countref/g;
+    return $string;
+}

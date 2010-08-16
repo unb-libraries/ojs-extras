@@ -1,0 +1,172 @@
+#!/usr/bin/perl -w
+use strict;
+use HTML::Entities qw(:DEFAULT encode_entities_numeric);;
+use Cwd;
+use File::Copy;
+
+die("Deprecated script.  See Mike N. for alternatives.\n");
+
+####### begin define subroutine prototypes #####
+
+sub usage();
+sub noWorkDir();
+sub cantCopy();
+sub cantWriteOutput();
+
+####### end define subroutine protypes #########
+
+my $pdftohtml = "/usr/local/bin/pdftohtml -c -i ";
+
+# call our usage script if no file passed in on command line
+usage() unless defined($ARGV[0]);
+
+my $file = $ARGV[0];
+
+if (-e $file && -r $file) {
+
+    if (my ($htmlname) = $file =~ m{^(.*)\.pdf$}i) {
+
+        #store this, we may need it later for abs. path to PDF document
+        my $working_dir = cwd;
+
+        $htmlname = $htmlname . ".html";
+        # create a working directory based on the process ID of our script
+        mkdir $$ or noWorkDir();
+        chdir $$;
+
+        my $output_dir = $working_dir;
+
+        if ($file !~ m#^/#) {  # we're dealing with a relative path
+
+            $file     = "${working_dir}/$file";
+            $htmlname = "${working_dir}/$htmlname";
+        } else {
+
+            if ($file =~ m{^(.*/)[^/]+$}) {
+                $output_dir = $1;
+            }
+        }
+        # copy the file to our working dir just to make sure we don't hose it
+        copy($file, "tmp.pdf") or cantCopy();
+        
+        # run our PDF command                
+
+        system("$pdftohtml tmp.pdf");
+
+        opendir my $tmpdir, ".";
+        my @html_files = grep { /\d+\.html$/ } readdir $tmpdir;        
+        closedir $tmpdir;
+ 
+        # locally turn on file content globbing mode
+        local $/ = undef;
+        my $new_contents = "";
+
+        foreach my $file (@html_files) {
+
+            my ($f_handle);
+            open $f_handle, "<", $file;   
+            my $contents = <$f_handle>;
+            close $f_handle;
+
+            # we only really need the body tag
+            $contents =~ s{^.*?<body\s+[^>]+>(.*)</body>.*$}{$1}si;
+
+            $contents = encode_entities_numeric($contents);        
+
+            # fix the tags that got converted in the process
+            $contents =~ s{&#x3C;}{<}sg;            
+	    $contents =~ s{&#x3E;}{>}sg;
+	    $contents =~ s{&#x22;}{"}sg;
+	    $contents =~ s{&#x26;}{&}sg;
+
+            # remove break tags. The leading - is for words that have been hyphenated.
+	    $contents =~ s{\-<br>}{}sg; 
+	    $contents =~ s{<br>}{ }sg; 
+
+
+            # assume that span tags containing only numbers are superscripted footnote references
+	    $contents =~ s{<span\s+[^>]+>\s*(\d+)\s*</span>}{<exposant>$1</exposant>}sg;
+
+            # do italics
+	    $contents =~ s{<i>(.*?)</i>}{<marquage typemarq="italique">$1</marquage>}sg;
+
+            # do bold
+	    $contents =~ s{<b>(.*?)</b>}{<marquage typemarq="gras">$1</marquage>}sg;
+
+            # remove other span tags. The leading - is for words that have been hyphenated.
+	    $contents =~ s{\-?</span>}{}sg;
+	    $contents =~ s{<span\s+[^>]+>}{}sg;
+
+            # remove DIV tags
+	    $contents =~ s{</?DIV[^>]*>}{}sg;
+            
+            $new_contents .= $contents;                        
+        }
+
+	open my $output, ">$htmlname" or cantWriteOutout();
+	print $output $new_contents;
+	close $output;
+
+        # bring the images along for the ride as well
+	opendir $tmpdir, ".";
+	my @images = grep { /\.png$/ } readdir $tmpdir;
+	closedir $tmpdir;
+        
+	foreach my $image (@images) {
+
+            move($image, "${output_dir}/$image");            
+	}
+
+        chdir $working_dir;
+        system("/bin/rm -rf $$"); # clean up after ourselves        
+    }  
+
+} else {
+    print "$file either doesn't exist, or is not readable.  Try again? \n";
+}
+
+
+######### BEGIN subroutine section ################
+
+sub usage() {
+
+    print <<END;
+
+Usage: convertPDF YourFile.pdf
+
+Generates a file named YourFile.html 
+
+END
+    exit();
+}
+
+sub noWorkDir() {
+
+    print <<END;
+
+convertPDF wasn't able to create a directory to work in.  Do you have write permission in this directory?
+
+END
+    exit();
+}
+
+sub cantCopy() {
+
+    print <<END;
+
+convertPDF wasn't able to copy the PDF file from its original location to the temporary directory.  This shouldn't really happen.
+
+END
+    exit();
+}
+
+
+sub cantWriteOutput() {
+
+    print <<END;
+
+convertPDF wasn't able to create the output HTML file, because it can't write to the output directory. Permission problems?
+
+END
+    exit();
+}

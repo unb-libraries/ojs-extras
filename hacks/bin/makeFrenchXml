@@ -1,0 +1,301 @@
+#!/usr/bin/perl -w
+
+use strict;
+use Term::ReadKey;
+
+sub getMonth($);
+sub addFragment($$$$$);
+sub readInput($);
+
+if (!defined($ARGV[0])) {
+    print "Usage:  makeFrenchXml /path/to/journal/files \n";
+    exit(0);
+}
+
+my $baseDir = $ARGV[0];
+
+if ($baseDir !~ m{/$}) { $baseDir .= "/"; }
+
+if (-r $baseDir && -d $baseDir) {
+
+
+  # ensure that the XML, HTML, and PDF directories are present within $baseDir.
+
+    my @subDirs = ("XML", "HTML", "PDF");
+
+    foreach my $dir (@subDirs) {
+
+	my $path = $baseDir . "/$dir";
+
+	if ( ! -d $path || ! -r $path) {
+	    print "$path doesn't exist or is not readable by you. Exiting... \n";
+            exit(0);
+        }
+    }
+
+    # get the XML files for the issue we are importing.
+
+    opendir (XMLDIR, $baseDir . "/XML");
+    my @xmlFiles = grep { /\.xml$/} readdir (XMLDIR);
+    closedir (XMLDIR);
+
+    my $xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE issues PUBLIC \"-//PKP//OJS Articles and Issues XML//EN\" \"http://pkp.sfu.ca/ojs/dtds/native.dtd\">\n<issues>\n  <issue published=\"true\" current=\"false\">\n";
+
+    my $count = 1;
+    my ($title, $volume, $number, $year, $date_published, $digpub);
+    undef $/;
+
+    # we have to first determine if they are articles, reviews, or "other".
+
+    my $article_section = "";
+    my $review_section = "";
+    my $other_section = "";
+    my $articles_present = 0;
+    my $reviews_present = 0;
+    my $others_present = 0;
+
+    foreach my $file (@xmlFiles) {
+
+
+      open (FILE, $baseDir . "XML/" . $file);
+      my $contents = "";
+      $contents = <FILE>;
+      close (FILE);
+      if ($count == 1) { # this is the first one, so we need to extract the issue information from it.
+
+        if ($contents =~ m{<volume>(.*?)</volume>}) {        
+          $volume = $1;
+        }
+
+        if ($contents =~ m{<nonumero>(.*?)</nonumero>}) {
+          $number = $1;
+        }
+
+        if ($contents =~ m{<annee>(.*?)</annee>}) {
+          $year = $1;
+        }
+
+        if ($contents =~ m{<pub>(.*?)</pub>}s) {
+          $digpub = $1;
+        }
+
+        $date_published = $year . "-" . getMonth($digpub) . "-01";
+
+
+        $title = "Vol $volume, No $number ($year)";
+        $xml .= "    <title>$title</title>\n";
+        $xml .= "    <volume>$volume</volume>\n";
+        $xml .= "    <number>$number</number>\n";
+        $xml .= "    <year>$year</year>\n";
+        $xml .= "    <date_published>$date_published</date_published>\n";
+
+      }  
+
+      if ($contents =~ /arttype="article"/) {
+          $article_section .= "        <!-- item $count --> \n";
+          $article_section .= addFragment("article", \$contents, $date_published, $baseDir, $file);
+          $articles_present = 1;
+      } elsif ($contents =~ /arttype="review"/) {
+          $review_section .= "        <!-- item $count --> \n";
+          $review_section .= addFragment("review", \$contents, $date_published, $baseDir, $file);
+          $reviews_present = 1;
+      } else {
+          $other_section .= "        <!-- item $count --> \n";
+          $other_section .= addFragment("other", \$contents, $date_published, $baseDir, $file);
+          $others_present = 1;
+      }
+
+      $count ++;
+    }
+
+
+        if ($articles_present == 1) {
+          $xml .= "      <section>\n";
+          $xml .= "        <title>Articles</title>\n";
+          $xml .= "        <abbrev>ART</abbrev>\n";
+          $xml .=            $article_section;
+          $xml .= "      </section>\n";
+        }
+ 
+        if ($reviews_present == 1) {
+          $xml .= "      <section>\n";
+          $xml .= "        <title>Book Reviews</title>\n";
+          $xml .= "        <abbrev>BR</abbrev>\n";
+          $xml .=            $review_section;
+          $xml .= "      </section>\n";
+        }
+
+        if ($others_present == 1) {
+          $xml .= "      <section>\n";
+          $xml .= "        <title>Review Essays</title>\n";
+          $xml .= "        <abbrev>RE</abbrev>\n";
+          $xml .=            $other_section;
+          $xml .= "      </section>\n";
+        }
+
+    $xml .= "\n  </issue>\n</issues>";
+
+
+    open (OUTPUT, ">ojs_import.xml") or die "cannot create output XML file - exiting...";
+    print OUTPUT $xml;
+    close (OUTPUT);
+
+
+} else {
+    print "$baseDir is either not a directory, or you do not have permission to go into it.\n";
+    exit();
+}
+
+print "\n";
+
+############ sub routines from here down ##################
+
+sub getMonth($) {
+  
+  my $digpub = shift;
+
+  if ($digpub =~ m#<periode>(.*?)</periode>#si) { $digpub = $1; }
+  my %month_codes = ("January" => "01", "February" => "02", "March" => "03", "April" => "04", "May" => "05", "June" => "06", 
+                     "July" => "07", "August" => "08", "September" => "09", "October" => "10", "November" => "11", "December" => "12");
+
+  if ($digpub =~ m{^(\w+)}) {
+      return $month_codes{$1};
+  } else { return ""; } 
+}
+
+sub addFragment($$$$$) {
+
+    my ($type, $ref, $date, $baseDir, $file) = @_;
+    
+    $file =~ s/\.xml$//;
+
+
+
+    my $fragment = "        <article>\n";
+
+   
+    if ($$ref =~ m{<grtitre>(.*?)</grtitre>}s) {
+        my $grtitre = $1;
+        my $titre = "";
+        my $sstitre = "";
+
+        if ($grtitre =~ m{<titre[^>]*>\s*(.*?)\s*</titre>}s) {
+	    $titre = $1;
+	}
+
+        if ($grtitre =~ m{<sstitre>\s*(.*?)\s*</sstitre>}s) {
+	    $sstitre = " " . $1;
+	}
+        
+      $fragment .= "          <title>${titre}${sstitre}</title>\n"; 
+    } elsif ($$ref =~ m{<biblioreft>(.*?)</biblioreft>}s) {
+      $fragment .= "          <title>$1</title>\n";   
+    }
+
+
+
+    if ($$ref =~ m{<resume\s*[^>]*>(.*?)</resume>}s) {
+
+        my  $abstract = $1;
+        $abstract =~ s{<[^>]+>}{}sg;
+        $abstract =~ s/^\s*(.*)\s*$/$1/;
+        $fragment .= "          <abstract>$abstract</abstract>\n";
+    }
+
+
+    while ($$ref =~ m{<auteur[^>]*>(.*?)</auteur>}sg) {
+
+        my $author_frag = $1;
+
+        $fragment .= "          <author>\n";
+
+        if ($author_frag =~ m{<prenom>(.*)</prenom>}s) {
+            $fragment .= "          <firstname>$1</firstname>\n";
+        }
+
+        if ($author_frag =~ m{<autreprenom>(.*)</autreprenom>}s) {
+            $fragment .= "          <middlename>$1</middlename>\n";
+        }
+
+        if ($author_frag =~ m{<nomfamille>(.*)</nomfamille>}s) {
+            $fragment .= "          <lastname>$1</lastname>\n";
+        }
+
+        if ($author_frag =~ m{<affiliation>\s*<alinea>(.*)</alinea>\s*</affiliation>}s) {
+
+            my $affiliation = $1;
+            $affiliation =~ s#\s*</alinea>(.*?)<alinea>#, #sg;
+            $fragment .= "          <affiliation>$affiliation</affiliation>\n";
+
+        }
+
+
+        $fragment .=   "          <email>none</email>\n";
+        $fragment .= "          </author>\n";
+    }
+
+
+    # a quick test to make sure that the HTML file, and exist...
+    if ( !-f $baseDir . "HTML/" . $file . ".html" ) {  
+
+	if (!readInput("\n" . $file . ".html does not exist.  Is this cool? (yes or no)")) {
+	    print "\nExiting.... \n";
+  
+        } 
+
+    } else {
+
+	$fragment .=   "          <htmlgalley>\n";
+	$fragment .=   "            <label>HTML</label>\n";
+	$fragment .=   "            <file>\n";
+	$fragment .=   "              <href src=\"${baseDir}HTML/${file}.html\" mime_type=\"text/html\"/>\n";
+	$fragment .=   "            </file>\n";
+	$fragment .=   "          </htmlgalley>\n";
+
+    }
+
+    if (! -f $baseDir . "PDF/"  . $file . ".pdf") {  
+
+	if (!readInput("\n" . $file . ".pdf does not exist.  Is this cool? (yes or no)")) {
+	    print "\nExiting.... \n";
+  
+        } 
+
+    } else {
+
+	$fragment .=   "          <galley>\n";
+	$fragment .=   "            <label>PDF</label>\n";
+	$fragment .=   "            <file>\n";
+	$fragment .=   "              <href src=\"${baseDir}PDF/${file}.pdf\" mime_type=\"application/pdf\"/>\n";
+	$fragment .=   "            </file>\n";
+	$fragment .=   "          </galley>\n";
+
+    }
+   $fragment .=   "          <date_published>$date</date_published>\n";
+   $fragment .=   "        </article>\n";
+
+    return $fragment;
+    
+}
+
+sub readInput($) {
+
+    my $prompt = shift;
+
+    # we assume everything has a "y" or "n" answer.
+    print "$prompt: ";
+    while (1) {
+
+        ReadMode 'cbreak';
+        my $r = ReadKey(0);
+        ReadMode 'normal';
+
+        if ($r =~ /^y$/) {
+            return 1;
+        } elsif ($r =~ /^n$/) {
+	    return 0;
+        }
+
+	print "\nPlease enter 'y' or 'n': ";
+    }
+}

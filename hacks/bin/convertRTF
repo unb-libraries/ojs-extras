@@ -1,0 +1,80 @@
+#!/usr/bin/perl -w
+
+use strict;
+use DBI;
+
+die("Deprecated script.  See Mike N. for alternatives.\n");
+sub replaceItalics($$);
+
+my $dbh = DBI->connect("DBI:mysql:entities","entities","Entities!!!");
+
+local $/ = undef;
+open my $file,  $ARGV[0] or die "cannot open file: $!";
+
+my $contents = <$file>;
+close $file;
+
+my $statement = "SELECT entity_id, rtf_value, hex_value FROM entities";
+my $sth = $dbh->prepare($statement);
+$sth->execute();
+
+my $hash_ref;
+
+while ($hash_ref = $sth->fetchrow_hashref()) {
+
+
+  my $rtf_ent = quotemeta($$hash_ref{'rtf_value'});
+  my $hex_ent = $$hash_ref{'hex_value'};
+
+  $contents =~ s/$rtf_ent/$hex_ent/sig;
+
+}
+
+# now do italics
+
+$contents =~ s#\{\\i(?!nfo)(.+?)\}#<marquage typemarq="italique">$1</marquage>#sig; # easy italics...
+
+$contents =~ s#\{(\\\w+\s+)*\\i\s+\\[\w]+(\s+\\\w+)*\s*(.*?)\}#<marquage typemarq="italique">$3</marquage>#sig;
+
+# experimental - addition of weird italics
+
+#$contents =~ s#\{\\i\s+(.*?)\\i0\s+\}(?!\s*\n)#<marquage typemarq="italique">$1</marquage>#sig;
+
+$contents =~ s/(\{        # initial curly brace
+                \\i       # followed by an escaped i which turns on italics
+                \s+       # we need white space to prevent matching of other tags, like \\info
+                (.*?)     # capture what's supposed to be italicized
+                \\i0      # turn off italics with \i0
+                \s+       # there's whitespace after that ...
+                \})       # closing curly brace
+                (?!\s*\n) # negative lookahead - we don't want this followed by a new line, or we've removed the last curly brace from the RTF line.  baaad, mmkay.
+                /replaceItalics($1, $2)/sigex;
+
+
+
+# do superscripting too
+$contents =~ s#\{[^{]*?\\super\s*(.*?)\s*\}#<exposant>$1</exposant>#sig;
+
+# subscripting....
+
+$contents =~ s#\{\s*\\sub\s+(.*?)\s*\}#<indice>$1</indice>#sig;
+
+
+open my $output, ">", "$ARGV[0]" . ".replaced" or die "cannot open $ARGV[0].replaced : $!";
+print $output  $contents;
+close $output;
+
+print "Created $ARGV[0].replaced from $ARGV[0] ... \n";
+
+
+sub replaceItalics($$) {
+
+  my ($all, $string) = @_;
+
+  if ($string =~ m#\{\\i\s+#) {
+    return $all;
+  } else {
+    return qq(<marquage typemarq="italique">$string</marquage>);
+  }
+
+}
