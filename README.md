@@ -22,6 +22,6 @@ ETC-flavoured OJS theme.
 
 Data munging scripts used by journal production staff.
 
-`ojs-extras/etcscripts/deleteSubmissions` 
+`ojs-extras/etcscripts/listSubmissionIds` 
 
-Bookmarklet hack to work around the lack of a batch submission deletion option in the OJS web interface. Copy the contents of `ojs-extras/etcscripts/deleteSubmissions/bookmarklet.js` into the location field of a new bookmark.
+Bookmarklet hack to work around the lack of a batch submission deletion option in the OJS web interface. Copy the contents of `ojs-extras/etcscripts/listSubmissionIds/bookmarklet.js` into the location field of a new bookmark. Replace `OJS_INSTALL_DIR` with the base URL of your OJS install, e.g., `http://your.domain.org/ojs-2.4`
