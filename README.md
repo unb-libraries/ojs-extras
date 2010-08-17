@@ -4,24 +4,24 @@ Preprocessing scripts, custom plugins, and hacks for OJS at the Electronic Text 
 
 ## Installation
 
-Copy _ojs-extras/etcscripts_ to _OJS_INSTALL_DIR_.  Copy the CONTENTS of _ojs-extras/plugins_ INTO the _plugins/_ folder provided by OJS, i.e., _OJS_INSTALL_DIR/plugins_.
+Copy `ojs-extras/etcscripts` to `OJS_INSTALL_DIR`.  Copy the CONTENTS of `ojs-extras/plugins` INTO the `plugins/` folder provided by OJS, i.e., `OJS_INSTALL_DIR/plugins`.
 
 ### Plugins
 
-_ojs-extras/plugins/blocks/extendedHelp_
+`ojs-extras/plugins/blocks/extendedHelp`
 
 Block plugin provides additional help options.
 
-_ojs-extras/plugins/themes/etcDefault_ 
+`ojs-extras/plugins/themes/etcDefault` 
 
 ETC-flavoured OJS theme.
 
 ### ETC Scripts
 
-_ojs-extras/etcscripts/preprocess_
+`ojs-extras/etcscripts/preprocess`
 
-Data munging scripts used by journal production staff
+Data munging scripts used by journal production staff.
 
-_ojs-extras/etcscripts/deleteSubmissions_ 
+`ojs-extras/etcscripts/deleteSubmissions` 
 
-Bookmarklet hack to work around the lack of a batch submission deletion option in the OJS web interface. Copy the contents of _ojs-extras/etcscripts/deleteSubmissions/bookmarklet.js_ into the location field of a new bookmark.
+Bookmarklet hack to work around the lack of a batch submission deletion option in the OJS web interface. Copy the contents of `ojs-extras/etcscripts/deleteSubmissions/bookmarklet.js` into the location field of a new bookmark.
