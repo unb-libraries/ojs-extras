@@ -7,9 +7,17 @@
     this.block.className = 'block';
     
     // the HTML we're interested in
-    var submissionsTable = document.getElementById('submissions').getElementsByTagName('table')[0];
-    // check existence of table
-    
+    var listingTables = [];
+    var regexp = new RegExp('\\b' + 'listing' + '\\b');
+    var allTables = document.getElementsByTagName('body')[0].getElementsByTagName('table');
+    for (var i=0, j=allTables.length; i<j; i++) {
+      if (regexp.test(allTables[i].className)) {
+        listingTables.push(allTables[i]);
+      }
+    }	
+
+    var submissionsTable = listingTables[0];
+
     // push article IDs onto array
     var articleIds = new Array();
     
