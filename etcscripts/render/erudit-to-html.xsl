@@ -43,14 +43,16 @@
         <link rel="stylesheet" href="erudit.css" type="text/css" />
       </head>
       <body>
-        <!-- front matter -->
-        <xsl:apply-templates select="/article/liminaire"/>
-        
-        <!-- article body -->
-        <xsl:apply-templates select="/article/corps"/>
-        
-        <!-- back matter -->
-        <xsl:apply-templates select="/article/partiesann"/>
+        <div id="body">
+          <!-- front matter -->
+          <xsl:apply-templates select="/article/liminaire"/>
+          
+          <!-- article body -->
+          <xsl:apply-templates select="/article/corps"/>
+          
+          <!-- back matter -->
+          <xsl:apply-templates select="/article/partiesann"/>
+        </div>
       </body>
     </html>
   </xsl:template>
@@ -663,6 +665,7 @@
   <xd:doc scope="component">
     <xd:desc>
       <xd:p>Multimedia: image, equation</xd:p>
+      <xd:p><xd:i>@todo: use JQuery for images</xd:i></xd:p>
     </xd:desc>
   </xd:doc>
   <xsl:template match="image[@typeimage='equation']">      
@@ -679,6 +682,7 @@
       <xd:p>Érudit Article DTD allows element <xd:i>objetmedia</xd:i> to be a child of inline elements
         (<xd:i>marquage</xd:i>, <xd:i>indice</xd:i>, etc.)  To produce valid XHTML, we must avoid
         block-level elements to format <xd:i>objetmedia</xd:i> and its descendants.</xd:p>
+      <xd:p><xd:i>@todo: JQuery for images</xd:i></xd:p>
     </xd:desc>
   </xd:doc>
   <xsl:template match="image">
@@ -691,7 +695,9 @@
         
     <xsl:variable name="fullsize-link" select="/article/grlien/lien[@xlink:to=$fullsize-label]"/>
 
-    <img src="{$THUMBNAIL_GENERATOR_URL}?{$OJS_BASE_URL}{$thumbnail-pointer/@xlink:href}" alt="{$thumbnail-pointer/@xlink:title}"/>
+    <a href="{$OJS_BASE_URL}{$fullsize-pointer/@xlink:href}">
+      <img src="{$THUMBNAIL_GENERATOR_URL}?{$thumbnail-pointer/@xlink:href}" alt="{$thumbnail-pointer/@xlink:title}"/>
+    </a>      
     <span class="title"><a href="{$OJS_BASE_URL}{$fullsize-pointer/@xlink:href}"><xsl:value-of select="$fullsize-link/@xlink:title"/></a></span>
   </xsl:template>
   
