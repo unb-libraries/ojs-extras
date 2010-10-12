@@ -408,9 +408,10 @@
     </xd:desc>
   </xd:doc>
   <xsl:template match="note">
-    <xsl:variable name="lien-note" select="//lien[@xlink:from=@id]"/>
-    <div class="note">
-      <a href="#{$lien-note/@xlink:to}" title="{$lien-note/@xlink:title}"><xsl:value-of select="no"/></a>
+    <xsl:variable name="note-link-id" select="@id"/>
+    <xsl:variable name="note-link" select="/article/grlien/lien[@xlink:from=$note-link-id]"/>
+    <div id="{$note-link-id}" class="note">
+      <a href="#{$note-link/@xlink:to}" title="{$note-link/@xlink:title}"><xsl:value-of select="no"/></a>
       <xsl:text> </xsl:text>
       <xsl:apply-templates/>
     </div>
@@ -556,9 +557,9 @@
     </xd:desc>
   </xd:doc>
   <xsl:template match="renvoi">
-    <xsl:variable name="lien-footnote" select="//lien[@xlink:from=@id]"/>
-    
-    <a id="{$lien-footnote/@xlink:from}" href="{concat('#', $lien-footnote/@xlink:to)}" title="{$lien-footnote/@xlink:title}" class="footnote">
+    <xsl:variable name="footnote-id" select="@id"/>
+    <xsl:variable name="footnote-link" select="/article/grlien/lien[@xlink:from=$footnote-id]"/>
+    <a id="{$footnote-link/@xlink:from}" href="{concat('#', $footnote-link/@xlink:to)}" title="{$footnote-link/@xlink:title}" class="footnote">
       <xsl:apply-templates/>
     </a>
   </xsl:template>
@@ -703,8 +704,8 @@
   
   <xd:doc scope="component">
     <xd:desc>
-      <xd:p>Numbering: suppressed for all divisions except <xd:i>&lt;para&gt;</xd:i>;
-        paragraph numbering is handled in template matching <xd:i>para/alinea</xd:i>.
+      <xd:p>Numbering: suppressed for all divisions except <xd:i>&lt;para&gt;</xd:i> and <xd:i>note</xd:i>;
+        see templates matching <xd:i>para/alinea</xd:i> and <xd:i>note</xd:i> for details.
       </xd:p>
     </xd:desc>
   </xd:doc>
