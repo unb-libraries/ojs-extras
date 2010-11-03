@@ -48,7 +48,8 @@ input.defaultButton {
 }
 
 #header {
-	background-color: #fff;
+  background-color: #fff;
+  margin: 0;
 }
 
 #footer {
