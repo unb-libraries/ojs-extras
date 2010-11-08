@@ -40,7 +40,6 @@
         <link rel="stylesheet" href="common.css" type="text/css" />
         <link rel="stylesheet" href="articleView.css" type="text/css" />
         <link rel="stylesheet" href="sitestyle.css" type="text/css" />
-        <link rel="stylesheet" href="erudit.css" type="text/css" />
       </head>
       <body>
         <div id="body">
