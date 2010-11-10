@@ -27,7 +27,7 @@
     div.editorial-note{}
     
     div.abstract {}
-        div.abstract-title {}
+        h4.abstract-title {}
         div.abstract p {}
     
     div.keyword-group {}
