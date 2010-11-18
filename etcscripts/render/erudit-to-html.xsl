@@ -37,9 +37,6 @@
       <head>
         <title><xsl:call-template name="get-metadata-title"/></title>
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-        <link rel="stylesheet" href="common.css" type="text/css" />
-        <link rel="stylesheet" href="articleView.css" type="text/css" />
-        <link rel="stylesheet" href="sitestyle.css" type="text/css" />
       </head>
       <body>
         <div id="body">
