@@ -61,7 +61,7 @@
                         div.section6 {}
                             h6 {}
                             
-    div.title {}
+    div.title-block {}
     
 /**
  * Back matter 
@@ -102,7 +102,7 @@ div.para {}
     div.para p {}
         div.para p span.no {}
         
-div.legende {}
+div.legend {}
 
 /**
  * Text elements 
@@ -143,7 +143,7 @@ span.name-org {}
 
 image {}
 image.equation {}
-    span.title {}
+    span.image-title {}
     
 /**
  * Lists
@@ -167,11 +167,11 @@ li {}
  * Figures
  */
  
-div.figure {}
-    div.figure span.title {}
+div.figure-block {}
+    div.figure-block span.image-title {}
 
 /**
  * Tables
  */
  
-div.table {}
+div.table-block {}

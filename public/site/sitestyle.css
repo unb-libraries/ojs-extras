@@ -142,7 +142,7 @@ div.affiliation { margin: 0 0 1em; }
 /**
  * Document body
  */
-div.title { font-weight: bold;}
+div.title-block { font-weight: bold;}
 
 /**
  * Text blocks
@@ -192,4 +192,4 @@ ol.bullet-decimal { list-style-type: decimal; }
  * Figures
  */
  
-div.figure span.title { display: block; }
+div.figure-block span.image-title { display: block; }

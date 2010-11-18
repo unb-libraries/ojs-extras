@@ -290,7 +290,7 @@
     </xd:desc>
   </xd:doc>
   <xsl:template match="titre">
-    <div class="title">
+    <div class="title-block">
       <xsl:apply-templates/>
     </div>
   </xsl:template>
@@ -520,7 +520,7 @@
     </xd:desc>
   </xd:doc>
   <xsl:template match="legende">
-    <div class="legende">
+    <div class="legend">
       <xsl:apply-templates/>
     </div>
   </xsl:template>
@@ -697,7 +697,7 @@
     <a href="{$OJS_BASE_URL}{$fullsize-pointer/@xlink:href}">
       <img src="{$THUMBNAIL_GENERATOR_URL}?{$thumbnail-pointer/@xlink:href}" alt="{$thumbnail-pointer/@xlink:title}"/>
     </a>      
-    <span class="title"><a href="{$OJS_BASE_URL}{$fullsize-pointer/@xlink:href}"><xsl:value-of select="$fullsize-link/@xlink:title"/></a></span>
+    <span class="image-title"><a href="{$OJS_BASE_URL}{$fullsize-pointer/@xlink:href}"><xsl:value-of select="$fullsize-link/@xlink:title"/></a></span>
   </xsl:template>
   
   <xd:doc scope="component">
@@ -773,7 +773,7 @@
     </xd:desc>
   </xd:doc>
   <xsl:template match="figure">
-    <div class="figure">
+    <div class="figure-block">
       <xsl:apply-templates/>
     </div>
   </xsl:template>
@@ -784,7 +784,7 @@
     </xd:desc>
   </xd:doc>
   <xsl:template match="tableau">
-    <div class="table">
+    <div class="table-block">
       <xsl:apply-templates/>
     </div>
   </xsl:template>
