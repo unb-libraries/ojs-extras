@@ -192,4 +192,5 @@ ol.bullet-decimal { list-style-type: decimal; }
  * Figures
  */
  
-div.figure-block span.image-title { display: block; }
+div.figure-block span.image-title, 
+div.table-block span.image-title { display: block; }
