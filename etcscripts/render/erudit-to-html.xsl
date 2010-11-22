@@ -506,7 +506,9 @@
   </xd:doc>
   <xsl:template match="para/alinea">
     <p>
-      <span class="no"><xsl:value-of select="../no"/></span><xsl:text> </xsl:text>
+    	<xsl:if test="exists(../no)">
+    		<span class="no"><xsl:value-of select="../no"/></span><xsl:text> </xsl:text>
+    	</xsl:if>
       <xsl:apply-templates/>
     </p>
   </xsl:template>
