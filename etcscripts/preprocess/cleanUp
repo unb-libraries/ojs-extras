@@ -1,174 +1,249 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 use strict;
-sub count($$);
+use warnings;
 
-if (!defined($ARGV[0])) {
-  print "Usage:  cleanUp <filename> \n";
-  exit(0);
+use Carp;
+use List::MoreUtils qw( any );
+use Readonly;
+
+# Usage & error messages
+
+Readonly my $USAGE          => 'Usage: cleanUp <file.xml>';
+Readonly my $NOT_FOUND      => 'File not found';
+Readonly my $NOT_READABLE   => 'File not readable';
+Readonly my $NOT_WRITEABLE  => 'File not writeable';
+
+# Replacement patterns
+# @todo: remove patterns no longer needed; journal production has
+# changed considerably since this script was written.
+
+Readonly my %REPLACEMENTS => (
+  '</?(?:web)?normal>'  => q{},
+  '<p/>'                => q{},
+  '<p>&\#12;</p>'       => q{},
+  '&\#7;'               => q{},
+  '&\#11;'              => q{},
+  '&amp;\#xAD;'         => q{},
+  '&\#x201C;'           => '&#x22;',   # left curly double quote
+  '&\#x201D;'           => '&#x22;',   # right curly double quote
+  '&\#x92;'             => '&#x27;',   # apostrophe
+);
+
+# Fairly extensive match for adding links to images in <figure> or <table> elements.
+Readonly my $FIGURE => qr{
+  <
+    (figure|tableau) \s+        # figure or table element ($1)
+    .*?                         # attributes, maybe
+    id="( [a-z]+ (\d+) )"       # id ($2) and numeric substring of id ($3)
+    .*?                         # more attributes
+  >    
+  .*?                           # elements preceeding <image> tag
+  
+  (                             # begin image tag capture, $4
+    <image \s+ .*?              # attributes, maybe
+    id="(im\d+)"                # image id, $5
+    .*?                         # attributes, maybe
+    typeimage="([^"]+)"         # image type, $6
+    .*?>                        # more attributes, maybe
+  )                             # end image tag capture
+  
+  .*?                           # elements following image tag, maybe
+  </\1>                         # closing tag for match in $1
+}xmsi;
+
+# Define link & pointer target types 
+Readonly my $TARGET_LARGE_IMAGE => 'large_image';
+Readonly my $TARGET_THUMBNAIL   => 'thumbnail';
+
+# English descriptions of link & pointer target types
+Readonly my %TARGET_DESC => (
+  $TARGET_LARGE_IMAGE => 'large image',
+  $TARGET_THUMBNAIL   => 'thumbnail'
+);
+
+# Suffixes to generate unique id labels for links, pointers,
+# based on target type.
+Readonly my %TARGET_LABEL_SUFFIX => (
+  $TARGET_LARGE_IMAGE => 'n',
+  $TARGET_THUMBNAIL   => 't',
+);
+
+# English labels for image types defined in Érudit DTD
+Readonly my %IMAGE_LABEL => (
+  'equation'  => 'Equation',
+  'figure'    => 'Figure',
+  'tableau'   => 'Table',
+);
+
+# we expect a single file -- complain if we find otherwise
+croak $USAGE if scalar @ARGV > 1;
+
+# fine.
+my ($xml_file) = @ARGV;
+
+croak $USAGE                      if ! defined $xml_file;
+croak "$NOT_FOUND: $xml_file"     if ! -f $xml_file;
+croak "$NOT_READABLE: $xml_file"  if ! -r $xml_file;
+
+# slurp contents 
+open my $fh, "<", $xml_file or croak $!;
+my $content = do { local $/; <$fh> };
+close $fh;
+
+# replace the replacements
+foreach my $find (keys %REPLACEMENTS) {
+  $content =~ s{ $find }{ $REPLACEMENTS{$find} }xmsige;
 }
 
+# normalize the whitespace, but leave line breaks alone
+$content =~ s{ [ \t]{2,} }{ }xmsg;
 
-if (!-f $ARGV[0] || !-r $ARGV[0]) {
-  print "That's either not a file, or the permissions aren't
-  right... exiting. \n";
-  exit(0);
-}
+# the following is not great code: $id must be reset
+# prior to its use in the global replace-and-increment.
+my $id;
 
-undef $/;
+# Add id attribute to paragraph elements
+$id = 1, $content =~ s{ <para[^>]*> }{ '<para id="pa' . $id++ . '">' }xmsige;
 
-open FILE, $ARGV[0];
-my $content = <FILE>;
-close FILE;
+# paragraph (alternate encoding)
+$id = 1, $content =~ s{ (<para[^>]*>) \s* <no>[^<]*</no> }{ $1 . '<no>' . $id++ . '</no>' }xmsige;
 
+# footnote
+$id = 1, $content =~ s{ <renvoi[^>]*> }{ '<renvoi id="re1no' . $id . '" idref="no' . $id++ . '" typeref="note">' }xmsige;
 
-# let's do all of the crap that needs to be stripped out, first.
+# note
+$id = 1, $content =~ s{ <note[^>]*> \s* <no>[^<]*</no> }{ '<note id="no' . $id . '"><no>' . $id++ . '</no>' }xmsige;
 
-my @crap = ("<p>&#12;</p>", "<Normal>", "</Normal>", "<p/>", "&#7;", "&#11;",
-            "<WebNormal>", "</WebNormal>", "&amp;#xAD;");
+# citation
+$id = 1, $content =~ s{ <refbiblio[^>]*> }{ '<refbiblio id="re' . $id++ . '">' }xmsige;
 
-foreach my $piece (@crap) {
-
-   $piece = quotemeta($piece);
-   $content =~ s/$piece//g; # Hiiiiideeeeeee Hoooooooo!
-}
-
-# so much for the crap... on to the stuff that gets replaced in Spy
-
-my %spy = ("&#x201C;" => "&#x22;",
-           "&#x201D;" => "&#x22;",
-	   "&#x92; " => "&#x27;");
+# link
+$id = 1, $content =~ s{ <liensimple \s+ id="li[^"]*" }{ '<liensimple id="li' . $id++ . '"' }xmsige;
 
 
-foreach my $i (keys (%spy)) {
- 
-   my $rep = $spy{$i};
-   $i = quotemeta($i);
-   $content =~ s/$i/$rep/sg;
-}
-
-
-# let's do para tags now, for numbering
-
-
-#my $number = 0;
-#$content =~ s#<para[^>]*>\s*<no>[^<]*#count(\$number, "<para id=\"pa[C]\"><no>[C]")#egs;
-
-my $number = 0;
-$content =~ s#<para[^>]*>*#count(\$number, "<para id=\"pa[C]\">")#egs;
-
-$number = 0;
-$content =~ s#(<para[^>]*>)\s*<no>[^<]*#count(\$number, "$1<no>[C]")#egs;
-
-
-# now for renvoi...
-
-$number = 0;
-$content =~ s#<renvoi[^>]*>#count(\$number, "<renvoi id=\"re1no[C]\" idref=\"no[C]\" typeref=\"note\">")#egs;
-
-
-# and now, for notes...
-
-$number = 0;
-$content =~ s#<note[^>]*>\s*<no>[^<]*#count(\$number, "<note id=\"no[C]\"><no>[C]")#egs;
-
-# last one, refbiblio
-
-$number = 0;
-$content =~ s#<refbiblio[^>]*>#count(\$number, "<refbiblio id=\"re[C]\">")#egs;
-
-# Also, liensimple.  This:
-# <liensimple id="li" xlink:href="http://website.org (http://website.org/)">http://website.org (http://website.org/)</liensimple>
-# becomes
-# <liensimple id="li###" xlink:href="http://website.org (http://website.org/)">http://website.org (http://website.org/)</liensimple>
-# where ### represents a sequential numbering of elements
-
-$number = 0;
-$content =~ s#<liensimple\s+id="li[^\"]*\"#count(\$number, "<liensimple id=\"li[C]\"")#egs;
-
-
-# now, we need to do something about images and these darned figures.  First, let's get all of the images in the document.
-# we also need to grab the context, to determine if they are figures, tables, or equations. equations don't get thumbnails,
-# and we need the id value in the figure/tableau tag to determine the filenames.
-
+# Build a string of XLink XML for table, equation, and figure images.
 my $image_xlink_xml = "";
 
-# we need to initialize some counters for numbering everything seperately.
-my $count = 0;
+# Assign each image a numeric id 
+my $image_id_no = 0;
 
-while ($content =~ m/<(figure|tableau)\s+.*?id="([^"]+)".*?>
-                        .*?
-                      (<image\s+.*?id="(im\d+)".*?typeimage="([^"]+)".*?>)
-                       .*?
-                      <\/\1>/sxg) {
+FIGURE:
+  while ($content =~ /$FIGURE/xmsig) {
+  
+    my ( $element_id, 
+         $element_id_no, 
+         $image_tag, 
+         $image_id, 
+         $image_type ) = ($2, $3, $4, $5, $6);
+         
+    # Érudit DTD restricts $image_type to defined values;
+    # give up if we find an unhandled image type
+    
+    croak "Unknown image type: $image_type" 
+      if ! ( $image_type eq 'figure' || 
+             $image_type eq 'equation' || 
+             $image_type eq 'tableau' );
 
-    $count ++;
-#    print "\n image is $3.  the figure/table id is $2, the image id is $4, and the typeimage is $5";
+    # increment the image id, then
+    $image_id_no++;
+    
+    # helpful comment to group pointeur, link elements
+    $image_xlink_xml .= "<!-- Figure $image_id_no -->";
 
-    my $image = $3;  
-    my $number = $2;
-    my $fig_id = $2;
-    my $image_id = $4;
-    my $type = $5;
+    # Image type 'equation' needs a pointer to a large image only,
+    # no thumbnail required
+     
+    if ($image_type eq 'equation') {
+    
+      # add pointer to large image of equation
+      $image_xlink_xml .= 
+        encode_pointer( {
+          target_type   => $TARGET_LARGE_IMAGE,
+          element_id    => $element_id,
+          element_id_no => $element_id_no,
+          image_type    => $image_type,
+          image_id_no   => $image_id_no,
+        });
+        
+        # we're done here.
+        next FIGURE;
+    }
 
-if ($type ne "equation") {
+    # all other image types require pointer & link to thumbnail,
+    # and pointer & link to large image
+    
+    foreach my $target_type ($TARGET_THUMBNAIL, $TARGET_LARGE_IMAGE) {
 
-    $number =~ s/[a-z]+(\d+)/$1/;
+      $image_xlink_xml .= 
+        encode_pointer( {
+          target_type   => $target_type,
+          element_id    => $element_id,
+          element_id_no => $element_id_no,
+          image_type    => $image_type,
+          image_id_no   => $image_id_no,
+        });
+      
+      $image_xlink_xml .= 
+        encode_link( {
+          target_type   => $target_type,
+          element_id    => $element_id,
+          element_id_no => $element_id_no,
+          image_type    => $image_type,
+          image_id_no   => $image_id_no,
+        });
+    }
 
-    if ($type eq "figure") {
-	$type = "Figure";
-    } else { $type = "Table"; }
+  } # end FIGURE: while (content matches $FIGURE)
 
-
-
-$image_xlink_xml .= qq(
-
-                 <!-- Figure $count -->
-
-<pointeur xlink:href="${fig_id}.jpg" xlink:label="im${count}t" xlink:title="Thumbnail of $type $number" dimx="0" dimy="0" taille="0ko" typemime="image:jpeg" desc="${fig_id}.jpg" xlink:type="locator"/>
-<!-- Arc defined for viewing the thumbnail onLoad -->
-<lien xlink:type="arc" xlink:from="im${count}" xlink:to="im${count}t" xlink:show="embed" xlink:actuate="onLoad" xlink:title="Display Thumbnail of $type $number"/>
-<!-- Large image as locator -->
-<pointeur xlink:href="${fig_id}.jpg" xlink:label="im${count}n" xlink:title="Large image of $type $number" dimx="0" dimy="0" taille="0ko" typemime="image:jpeg" desc="${fig_id}.jpg" xlink:type="locator"/>
-<!-- Arc defined for viewing the large image onRequest -->
-<lien xlink:type="arc" xlink:from="im${count}" xlink:to="im${count}n" xlink:show="embed" xlink:actuate="onRequest" xlink:title="Display large image of $type $number"/>
-
-		       );
-
-} else {
-
-    $number =~ s/[a-z]+(\d+)/$1/;
-
-$image_xlink_xml .= qq(
-
-                 <!-- Figure $count -->
-
-
-<!-- Large image as locator -->
-<pointeur xlink:href="${fig_id}.jpg" xlink:label="im${count}n" xlink:title="Large image of Equation $number" dimx="0" dimy="0" taille="0ko" typemime="image:jpeg" desc="${fig_id}.jpg" xlink:type="locator"/>
-
-		       );
-
-}
-
-}
-
-
+# Add link & pointer XML after '<grlien>' placeholder
 $content =~ s/(<grlien[^>]*>)/$1\n$image_xlink_xml/;
-#print $image_xlink_xml;
 
-
-
-open FILE, ">$ARGV[0]";
+# This strikes me as risky.
+croak "$NOT_WRITEABLE: $xml_file" if ! open FILE, ">$xml_file";
 print FILE $content;
 close FILE;
 
+exit 0;
 
-sub count($$) {
+## Utilities to encode <lien>, <pointeur> elements ##
 
-    my ($countref, $string) = @_;
-    $$countref++;
+sub encode_pointer {
+  my ($arg_ref) = @_;
+  
+  croak "Usage: fixme" 
+    if any { ! defined $arg_ref->{$_} } 
+      qw(target_type element_id element_id_no image_type image_id_no);
 
-    $string =~ s/\[C\]/$$countref/g;
-    return $string;
+  my $pointer = <<"END_POINTER";
+<!-- $TARGET_DESC{ $arg_ref->{'target_type'} }  as locator -->
+<pointeur 
+  xlink:href="$arg_ref->{'element_id'}.jpg" 
+  xlink:label="im$arg_ref->{'image_id_no'}$TARGET_LABEL_SUFFIX{$arg_ref->{'target_type'}}"
+  xlink:title="@{[ ucfirst $TARGET_DESC{$arg_ref->{'target_type'}} ]} of $IMAGE_LABEL{$arg_ref->{'image_type'}} $arg_ref->{'element_id_no'}"
+  desc="$arg_ref->{'element_id'}.jpg"
+  typemime="image:jpeg"
+  xlink:type="locator"/>
+END_POINTER
+
+  return $pointer;
+}
+
+sub encode_link {
+  my ($arg_ref) = @_;
+  
+  croak "Usage: fixme" 
+    if any { ! defined $arg_ref->{$_} } 
+      qw(target_type element_id element_id_no image_type image_id_no);
+  
+  my $link = <<"END_LINK";
+<!-- Arc defined for viewing the $TARGET_DESC{$arg_ref->{'target_type'}} -->  
+<lien 
+  xlink:type="arc" 
+  xlink:from="im$arg_ref->{'image_id_no'}"
+  xlink:to="im$arg_ref->{'image_id_no'}$TARGET_LABEL_SUFFIX{$arg_ref->{'target_type'}}"
+  xlink:title="Display $TARGET_DESC{$arg_ref->{'target_type'}} of $IMAGE_LABEL{$arg_ref->{'image_type'}} $arg_ref->{'element_id_no'}"/>  
+END_LINK
+
+  return $link;
 }
