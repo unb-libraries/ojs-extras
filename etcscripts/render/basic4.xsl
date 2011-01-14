@@ -235,6 +235,16 @@
 <ul class="nodisplay"><xsl:apply-templates/></ul>
 </xsl:template>
 
+<xsl:template match="listenonord[@signe='tiret']">
+	<ul class="dash">
+		<xsl:apply-templates/>
+	</ul>
+</xsl:template>
+
+<xsl:template match="listenonord">
+	<ul><xsl:apply-templates/></ul>
+</xsl:template>
+
 <xsl:template match="elemliste">
 <li><xsl:apply-templates/></li>
 </xsl:template>
@@ -259,7 +269,9 @@
 <ol type="i"><xsl:apply-templates/></ol>
 </xsl:template>
 
-
+<xsl:template match="listeord">
+	<xsl:apply-templates/>
+</xsl:template>
 
 
 <!-- Poetry -->
