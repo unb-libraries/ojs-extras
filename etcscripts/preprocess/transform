@@ -14,7 +14,7 @@
 ########################################################################
 
   # define a path to a generic style sheet if none is provided
-  XSLT_SHEET=/home/journals/etc_journals/bin/basic4.xsl;
+  XSLT_SHEET=/etcdata/etcdev_www/ojs-dev/etcscripts/render/basic4.xsl;
   
   # define our path to our java binary
   JAVA=/usr/bin/java;
