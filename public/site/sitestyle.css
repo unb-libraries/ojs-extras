@@ -4,36 +4,37 @@
  * Copyright (c) 2003-2008 John Willinsky
  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
  *
+ * New ETC Theme
+ * Written by Michael Nason at the Electronic Text Centre, UNB Libraries 2011
+ * 
  * Site-wide styles. Override these with themes and/or journal-specific stylesheets.
  *
- * $Id$
  */
 
 /**
  * Override defaults defined in styles/common.css
  */
+ 
 body {
 	background-color: #fff;
 }
 
 a:link {
-	color: #5c8dad;
+	color: #af302a;
 }
 
 a:active {
-	color: #5c8dad;
+	color: #000000;
 }
 
 a:visited {
-	/* @todo: need a 3rd colour for visited links */
-	color: #5c8dad;
+	color: #af302a;
 }
 
 a:hover {
-	color: #666;
+	color: #000000;
 	background-color: inherit;
 }
-
 
 input.textField, select.selectMenu, textarea.textArea, input.uploadField {
 	border: 1px solid #cccccc;
@@ -44,7 +45,8 @@ input.button {
 }
 
 input.defaultButton {
-	background-color: #5c8dad;
+	background-color: #555555;
+	color: #E9E9E9;
 }
 
 #header {
@@ -73,26 +75,58 @@ span.block {
 	margin: 1.5em 2.5em;
 }
 
-
 /**
  * Override defaults defined in styles/sidebar.css
  */
-#sidebar div.block {
-	border: 1px solid #cccccc;
-	background-color: #e6e6e6;
-	padding: .5em;
-	margin-bottom: 1em;
+ 
+ #sidebar a:link {
+	color: #af302a;
+	text-decoration:none;
 }
 
+#sidebar a:active {
+	color: #000000;
+	text-decoration:none
+}
+
+#sidebar a:visited {
+	color: #af302a;
+	text-decoration:none;
+}
+
+#sidebar a:hover {
+	color: #000000;
+	background-color: inherit;
+}
+  
+#sidebar div.block {
+    border-left: 0px;
+    border-right: 0px;
+    border-bottom: 0px;
+    background-color: white;
+    padding-top: 0em;
+    padding-right: 0em;
+    padding-bottom: 0em;
+    padding-left: 0em;
+    margin-bottom: 3em;
+}
+  
 #sidebar div.block span.blockTitle {
-	color: #993300;
-	font-weight: bold;
-	padding: 0 0 0.5em 0;
+    color: #555555;
+    background-color: #E9E9E9;
+    font-weight: bold;
+    padding-top: 0.5em;
+    padding-right: 0.5em;
+    padding-bottom: 0.5em;
+    padding-left: 0.5em;
+    margin-bottom:0.5em;
+    text-align:left;
 }
 
 /**
  * Override defaults defined in styles/articleView.css
  */
+ 
 #main h2, #main h3, #main h4, #main h5, #main h6 {
  	font-family: Helvetica, Arial, sans-serif;
 }
@@ -109,6 +143,131 @@ div.rtSeparatorThin {
 	padding: 5px 0px 5px 0px;
 	border-bottom: 1px dotted #cccccc;
 	line-height: 0px;
+}
+
+/**
+ * Article-Display
+ */
+
+/**
+ * Front matter
+ */ 
+
+#front-matter h2.supertitle { 
+    font-size: 1.0em;
+    color: #cccccc;
+    text-transform: uppercase;
+}
+
+#front-matter h3.article-title {
+    font-size: 1.8em;
+    padding-top: 5px;
+}
+
+#front-matter h4.subtitle {
+    font-size: 1.8em;
+    margin-top: 2px;
+}
+
+#front-matter span.name-pers {
+    font-size: 1.1em;
+}
+
+#front-matter div.abstract {
+    width: 90%;
+    margin: auto;
+}
+
+#front-matter > div.abstract:last-child {
+    margin-bottom: 25px;
+    border-bottom: gray dotted 1px;    
+}
+
+#front-matter h4.abstract-title {
+    font-size: 1.3em;
+    text-align: center;
+}
+
+
+/**
+* Body Headers
+*/
+
+#document-body h1, #document-body h2, #document-body h3, #document-body h4, #document-body h5, #document-body h6 {
+    font-family: Helvetica,Arial,sans-serif;
+    font-weight: normal;
+    margin-top: 5px;
+    margin-bottom: 1px;
+}
+
+#document-body div.section1 h1 {
+    font-size: 1.4em;
+}
+
+#document-body div.section2 h2 {
+    font-size: 1.2em;
+}
+
+#document-body div.section3 h3 {
+    font-size: 1.2em;
+    font-style: italic;
+}
+
+/**
+ * Verbatim
+ */
+ 
+ div.verbatim-block {
+    margin:1.5em 2.5em;
+}
+
+/**
+ * Tables & Figures
+ */
+ 
+div.table-block {
+    margin:1.5em 2.5em;    
+}
+
+div.figure-block {
+    margin:1.5em 2.5em;
+}
+
+/**
+ * Backmatter 
+ */
+ 
+ #back-matter {
+     margin-top: 25px;
+ }
+ 
+ #back-matter div.title-block {
+    font-size: 1.4em;
+    font-family: Helvetica,Arial,sans-serif;
+    font-weight: normal;
+    margin-top: 5px;
+    margin-bottom: 1px;
+}
+
+#back-matter h1, #back-matter h2, #back-matter h3, #back-matter h4, #back-matter h5, #back-matter h6 {
+    font-family: Helvetica,Arial,sans-serif;
+    font-weight: normal;
+    margin-top: 5px;
+    margin-bottom: 1px;
+}
+
+#back-matter div.appendix div.section1 h1 {
+    font-size: 1.4em;
+}
+
+#back-matter div.appendix div.section2 h2 {
+    font-size: 1.2em;
+    font-style: italic;
+}
+
+#back-matter div.appendix div.section3 h3 {
+    font-size: 1.2em;
+    font-style: italic;
 }
 
 
@@ -129,20 +288,19 @@ span.nopara {
  */
 
 /* @todo: override generic div styling where necessary */
-div { margin: 1em 0; }
+div { margin: 1em 0em; }
 
 /* @todo: add hover styling */
 a img { border: none; }
 
-/**
- * Front matter
- */
+
+ 
 div.affiliation { margin: 0 0 1em; }
 
 /**
  * Document body
  */
-div.title-block { font-weight: bold;}
+div.title { font-weight: bold;}
 
 /**
  * Text blocks
@@ -192,5 +350,4 @@ ol.bullet-decimal { list-style-type: decimal; }
  * Figures
  */
  
-div.figure-block span.image-title, 
-div.table-block span.image-title { display: block; }
+div.figure span.title { display: block; }
