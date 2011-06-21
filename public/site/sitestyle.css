@@ -124,6 +124,15 @@ span.block {
 }
 
 /**
+ * Font-size block has a div that wraps left-floated, block-formatted
+ * anchors, but no other content. Give the div an explicit size so
+ * it extends to contain the anchors.
+ */
+div#sizer {
+  height: 18px;
+}
+
+/**
  * Override defaults defined in styles/articleView.css
  */
  
