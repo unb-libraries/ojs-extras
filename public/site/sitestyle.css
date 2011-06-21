@@ -225,12 +225,16 @@ div.rtSeparatorThin {
  * Tables & Figures
  */
  
-div.table-block {
-    margin:1.5em 2.5em;    
+div.table-block, 
+div.figure-block {
+  margin: 1.5em 2.5em;    
+  padding-left: 10px;
+  border-left: 1px gray dotted;
 }
 
-div.figure-block {
-    margin:1.5em 2.5em;
+div.table-block span.image-title,
+div.figure-block span.image-title {
+  display: block;
 }
 
 /**
