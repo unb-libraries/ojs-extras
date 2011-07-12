@@ -1,20 +1,22 @@
 #!/bin/sh
-
 ########################################################################
 ##
-## XSLT Transformation Script version 1.0
-## Jason Nugent - University of New Brunswick
-## Electronic Text Centre
-## Copyright 2005
-## jnugent@unb.ca
-## 
-## Revision History:  Version 1.0 (April 25, 2005)
+## XSLT Transformation Script
+## Electronic Text Centre, University of New Brunswick
+## Copyright 2005-2011
+##
+## Revision History:  
+##
+##  Version 1.0 (April 25, 2005), jnugent@unb.ca
 ##    - Initial Revision
+##
+##  Updated 14 July 2011, jwhitney@unb.ca
+##    - Script modified to use new default stylesheet
 ##
 ########################################################################
 
   # define a path to a generic style sheet if none is provided
-  XSLT_SHEET=/etcdata/etcdev_www/ojs-dev/etcscripts/render/basic4.xsl;
+  XSLT_SHEET=/etcdata/etcdev_www/ojs-dev/etcscripts/render/erudit-to-html.xsl;
   
   # define our path to our java binary
   JAVA=/usr/bin/java;
@@ -32,11 +34,11 @@ function usage() {
   echo " ";
   echo " Examples: ";
   echo " ";
-  echo " $0 /home/journals/etc_journals/bin/basic4.xsl . ";
-  echo " $0 stylesheet.xsl /www/Texts/xml";
+  echo " $0 /home/username/my-special-stylesheet.xsl . ";
+  echo " $0 fancy-stylesheet.xsl /www/Texts/xml";
   echo " ";
-  echo "Leaving all options blank and just running $0 will cause the defaults for stylesheet and"; 
-  echo "XML directories to be used.  They are currently: ";
+  echo "Run the script without options to use the default stylesheet and XML directory.";
+  echo "These are: ";
   echo "Stylesheet: $XSLT_SHEET";
   echo "XML Directory: $XML_DIR";
   echo "";
