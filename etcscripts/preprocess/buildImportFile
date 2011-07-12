@@ -971,7 +971,7 @@ define('HTML_FILE_EXT', 'html');
 define('XML_FILE_EXT',  'xml');
 define('PDF_FILE_EXT',  'pdf');
 
-define('OJS_IMPORT_FILE', 'ojs_import_test.xml');
+define('OJS_IMPORT_FILE', 'ojs_import.xml');
 
 /* ========================================================================= */
 //  Error handling
