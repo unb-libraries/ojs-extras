@@ -150,7 +150,7 @@ class OJSIssue extends OJSImportable {
         $document->importNode($section->get_xml_document(), TRUE)
       );
     }
-
+    
     return $issues_node;
   }
 
@@ -173,6 +173,9 @@ class OJSIssue extends OJSImportable {
     $document->appendChild(
       $document->importNode($this->get_xml_document(), TRUE)
     );
+    
+    // Final sanity check:
+    $document->validate();
 
     return $document->saveXML();
   }
