@@ -36,6 +36,7 @@ abstract class OJSImportable {
     }
     return self::$dom_implementation;
   }
+
 }
 
 /* ========================================================================= */
@@ -177,7 +178,10 @@ class OJSIssue extends OJSImportable {
     // Final sanity check:
     $document->validate();
 
-    return $document->saveXML();
+    // Hack to preserve CDATA sections. 
+    $document_xml = preg_replace("/&lt;!\[CDATA\[&lt;(\/?([^&]+?))&gt;\]\]&gt;/s", "<![CDATA[<$1>]]>", $document->saveXML());
+
+    return $document_xml;
   }
 }
 
