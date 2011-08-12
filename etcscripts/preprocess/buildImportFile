@@ -36,7 +36,17 @@ abstract class OJSImportable {
     }
     return self::$dom_implementation;
   }
-
+  
+  // A convenience method to create text-only, properly-escaped text nodes.
+  protected function create_text_node($parent_node, $node_name, $node_value = '') {
+   $document  = $parent_node->ownerDocument;
+   $text_node = $document->createTextNode($node_value);
+   $node      = $document->createElement($node_name);
+   
+   $node->appendChild($text_node);
+   
+   return $node;
+  }
 }
 
 /* ========================================================================= */
@@ -136,15 +146,12 @@ class OJSIssue extends OJSImportable {
    $issue_node->setAttribute('current', 'true');    
 
     // title, volume, number, year, date published
-    /**
-     @todo: should these append DOMText nodes?
-     */
-    $issue_node->appendChild($document->createElement('title', $this->get_title()));
-    $issue_node->appendChild($document->createElement('volume', $this->get_volume()));
-    $issue_node->appendChild($document->createElement('number', $this->get_issue_number()));    
-    $issue_node->appendChild($document->createElement('year', $this->get_year()));
-    $issue_node->appendChild($document->createElement('date_published', $this->get_date_published()));
-    
+    $issue_node->appendChild( $this->create_text_node($issue_node, 'title',           $this->get_title()) );
+    $issue_node->appendChild( $this->create_text_node($issue_node, 'volume',          $this->get_volume()) );     
+    $issue_node->appendChild( $this->create_text_node($issue_node, 'number',          $this->get_issue_number()) );     
+    $issue_node->appendChild( $this->create_text_node($issue_node, 'year',            $this->get_year()) );     
+    $issue_node->appendChild( $this->create_text_node($issue_node, 'date_published',  $this->get_date_published()) );     
+
     // Import & append sections
     foreach ($this->get_section_list() as $section) {
       $issue_node->appendChild(
@@ -239,8 +246,8 @@ class OJSIssueSection extends OJSImportable {
     $section_node = $document->appendChild($document->createElement('section'));
 
     // Section title and ID 
-    $section_node->appendChild($document->createElement('title', $this->get_section_title()));
-    $section_node->appendChild($document->createElement('abbrev', $this->get_section_id()));
+    $section_node->appendChild( $this->create_text_node($section_node, 'title', $this->get_section_title()) );
+    $section_node->appendChild( $this->create_text_node($section_node, 'abbrev', $this->get_section_id()) );
 
     foreach ($this->get_article_list() as $article) {
       // A helpful identifier.
@@ -403,8 +410,8 @@ class OJSArticle extends OJSImportable {
     $article_node = $document->appendChild($document->createElement('article'));
 
     // Article title & abstract
-    $article_node->appendChild($document->createElement('title', $this->get_title()));
-    $article_node->appendChild($document->createElement('abstract', $this->get_abstract()));
+    $article_node->appendChild( $this->create_text_node($article_node, 'title', $this->get_title()) );
+    $article_node->appendChild( $this->create_text_node($article_node, 'abstract', $this->get_abstract()) );    
     
     // An article has zero or more authors, but OJS requires an author-type
     // construct: submit an empty author
@@ -430,7 +437,7 @@ class OJSArticle extends OJSImportable {
     }  
     
     // Date published
-    $article_node->appendChild($document->createElement('date_published', $this->get_date_published()));
+    $article_node->appendChild( $this->create_text_node($article_node, 'date_published', $this->get_date_published()) );    
         
     // A PDF galley?
     if ($this->get_pdf_galley()) {
@@ -530,18 +537,18 @@ class OJSAuthor extends OJSImportable {
     
     // firstname, middlename, lastname  
     if ($this->get_firstname()) {
-      $author_node->appendChild($document->createElement('firstname', $this->get_firstname()));
+      $author_node->appendChild( $this->create_text_node($author_node, 'firstname', $this->get_firstname()) );
     }
     if ($this->get_middlename()) {
-      $author_node->appendChild($document->createElement('middlename', $this->get_middlename()));
+      $author_node->appendChild( $this->create_text_node($author_node, 'middlename', $this->get_middlename()) );
     }
     if ($this->get_lastname()) {
-      $author_node->appendChild($document->createElement('lastname', $this->get_lastname()));
+      $author_node->appendChild( $this->create_text_node($author_node, 'lastname', $this->get_lastname()) );
     }
     
     // Affiliation
     if ($this->get_affiliation()) {
-      $author_node->appendChild($document->createElement('affiliation', $this->get_affiliation()));      
+      $author_node->appendChild( $this->create_text_node($author_node, 'affiliation', $this->get_affiliation()) );
     }
 
     // E-mail a bit of a special case
@@ -549,7 +556,8 @@ class OJSAuthor extends OJSImportable {
     if (empty($email)) {
       $email = 'none';
     }
-    $author_node->appendChild($document->createElement('email', $email));
+
+    $author_node->appendChild( $this->create_text_node($author_node, 'email', $email) );
     
     return $author_node;
   }
