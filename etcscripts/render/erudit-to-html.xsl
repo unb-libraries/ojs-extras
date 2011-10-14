@@ -669,10 +669,12 @@
   </xd:doc>
   <xsl:template match="image[@typeimage='equation']">      
     <!-- select the pointeur node which has an xlink:label that defines our fullsize image, and store it in a variable -->
-    <xsl:variable name="pointeur-fullsize" select="//pointeur[@xlink:label=concat(@id, 'n')]"/>
+    <xsl:variable name="label" select="concat(@id, 'n')"/>
+    <xsl:variable name="pointeur-fullsize" select="//pointeur[@xlink:label=$label]"/>
     
     <!-- use both images to generate the link and the img tag of our thumbnail -->
-    <img class="equation" src="{$OJS_BASE_URL}/{$pointeur-fullsize/@xlink:href}" alt="{$pointeur-fullsize/@xlink:title}"/>
+    <img class="equation" src="{$OJS_BASE_URL}{$pointeur-fullsize/@xlink:href}" alt="{$pointeur-fullsize/@xlink:title}"/>
+    
   </xsl:template>
   
   <xd:doc scope="component">
