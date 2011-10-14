@@ -9,10 +9,12 @@
   </xd:doc>
 
   <xsl:output 
-    method="xml"
+    method="xhtml"
     omit-xml-declaration="yes"
     doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN"
     doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"/>
+  
+  <xsl:strip-space elements="*"/>
   
   <xd:doc scope="component">
     <xd:desc>
