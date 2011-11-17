@@ -438,20 +438,6 @@ class OJSArticle extends OJSImportable {
     
     // Date published
     $article_node->appendChild( $this->create_text_node($article_node, 'date_published', $this->get_date_published()) );    
-        
-    // A PDF galley?
-    if ($this->get_pdf_galley()) {
-      $galley_node = $article_node->appendChild($document->createElement('galley'));
-
-      // Child elements of <galley>
-      $label_node = $galley_node->appendChild($document->createElement('label', 'PDF'));
-      $file_node  = $galley_node->appendChild($document->createElement('file'));
-      
-      // Child elements of <file>
-      $href_node = $file_node->appendChild($document->createElement('href'));
-      $href_node->setAttribute('src', $this->get_pdf_galley());
-      $href_node->setAttribute('mime_type', 'application/pdf');
-    }
     
     // An HTML galley?
     // @fixme too much copy/paste
@@ -467,8 +453,22 @@ class OJSArticle extends OJSImportable {
       $href_node = $file_node->appendChild($document->createElement('href'));
       $href_node->setAttribute('src', $this->get_html_galley());
       $href_node->setAttribute('mime_type', 'text/html');
-    }    
+    }
+        
+    // A PDF galley?
+    if ($this->get_pdf_galley()) {
+      $galley_node = $article_node->appendChild($document->createElement('galley'));
 
+      // Child elements of <galley>
+      $label_node = $galley_node->appendChild($document->createElement('label', 'PDF'));
+      $file_node  = $galley_node->appendChild($document->createElement('file'));
+      
+      // Child elements of <file>
+      $href_node = $file_node->appendChild($document->createElement('href'));
+      $href_node->setAttribute('src', $this->get_pdf_galley());
+      $href_node->setAttribute('mime_type', 'application/pdf');
+    }
+    
     return $article_node;
   }
 }
