@@ -94,7 +94,7 @@
       <xd:p>Front matter: title group, super-title</xd:p>
     </xd:desc>
   </xd:doc>
-  <xsl:template match="surtitre[exists(text())]">
+  <xsl:template match="surtitre[descendant-or-self::text()]">
     <h2 class="supertitle"><xsl:apply-templates/></h2>
   </xsl:template>
   
@@ -103,7 +103,7 @@
       <xd:p>Front matter: title group, title</xd:p>
     </xd:desc>
   </xd:doc>
-  <xsl:template match="grtitre/titre[exists(text())]">
+  <xsl:template match="grtitre/titre[descendant-or-self::text()]">
     <h3 class="article-title"><xsl:apply-templates/></h3>
   </xsl:template>
   
@@ -112,7 +112,7 @@
       <xd:p>Front matter: title group, subtitle</xd:p>
     </xd:desc>
   </xd:doc>
-  <xsl:template match="sstitre[exists(text())]">
+  <xsl:template match="sstitre[descendant-or-self::text()]">
     <h4 class="subtitle"><xsl:apply-templates/></h4>
   </xsl:template>
   
@@ -121,7 +121,7 @@
       <xd:p>Front matter: title group, biblio reference</xd:p>
     </xd:desc>
   </xd:doc>
-  <xsl:template match="trefbiblio[exists(text())]">
+  <xsl:template match="trefbiblio[descendant-or-self::text()]">
     <h3 class="biblioref"><xsl:apply-templates/></h3>
   </xsl:template>
     
@@ -226,7 +226,7 @@
       <xd:p>Front matter: keyword group, keyword</xd:p>
     </xd:desc>
   </xd:doc>
-  <xsl:template match="motcle[exists(text())]">
+  <xsl:template match="motcle[descendant-or-self::text()]">
     <span class="keyword"><xsl:apply-templates/></span><xsl:text> </xsl:text>
   </xsl:template>
   
@@ -623,7 +623,7 @@
       <xd:p>Names: personal name, prefix</xd:p>
     </xd:desc>
   </xd:doc>
-  <xsl:template match="prefixe[exists(text())]">
+  <xsl:template match="prefixe[descendant-or-self::text()]">
     <span class="name-prefix"><xsl:apply-templates/></span><xsl:text> </xsl:text>
   </xsl:template>
   
@@ -632,7 +632,7 @@
       <xd:p>Names: personal name, given name</xd:p>
     </xd:desc>
   </xd:doc>
-  <xsl:template match="prenom[exists(text())]">
+  <xsl:template match="prenom[descendant-or-self::text()]">
     <span class="name-given"><xsl:apply-templates/></span><xsl:text> </xsl:text>
   </xsl:template>
   
@@ -641,7 +641,7 @@
       <xd:p>Names: personal name, middle name</xd:p>
     </xd:desc>
   </xd:doc>
-  <xsl:template match="autreprenom[exists(text())]">
+  <xsl:template match="autreprenom[descendant-or-self::text()]">
     <span class="name-middle"><xsl:apply-templates/></span><xsl:text> </xsl:text>
   </xsl:template>
   
@@ -650,7 +650,7 @@
       <xd:p>Names: personal name, surname</xd:p>
     </xd:desc>
   </xd:doc>
-  <xsl:template match="nomfamille[exists(text())]">
+  <xsl:template match="nomfamille[descendant-or-self::text()]">
     <span class="name-surname"><xsl:apply-templates/></span>
   </xsl:template>
   
