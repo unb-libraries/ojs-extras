@@ -76,6 +76,10 @@ Readonly my %IMAGE_LABEL => (
   'tableau'   => 'Table',
 );
 
+###############################################################################
+#  Open & slurp XML file
+###############################################################################
+
 # we expect a single file -- complain if we find otherwise
 croak $USAGE if scalar @ARGV > 1;
 
@@ -91,6 +95,10 @@ open my $fh, "<", $xml_file or croak $!;
 my $content = do { local $/; <$fh> };
 close $fh;
 
+###############################################################################
+#  Replace patterns defined above and normalize whitespace
+###############################################################################
+
 # replace the replacements
 foreach my $find (keys %REPLACEMENTS) {
   $content =~ s{ $find }{ $REPLACEMENTS{$find} }xmsige;
@@ -99,28 +107,90 @@ foreach my $find (keys %REPLACEMENTS) {
 # normalize the whitespace, but leave line breaks alone
 $content =~ s{ [ \t]{2,} }{ }xmsg;
 
-# the following is not great code: $id must be reset
-# prior to its use in the global replace-and-increment.
-my $id;
+###############################################################################
+#  Element numbering
+###############################################################################
 
-# Add id attribute to paragraph elements
-$id = 1, $content =~ s{ <para[^>]*> }{ '<para id="pa' . $id++ . '">' }xmsige;
+#
+# Sections
+#
+# Erudit Article 3.0 DTD defines 6 levels of sections to organize content. 
+# Section elements are numbered sequentially ACROSS HIERARCHIES, i.e., section
+# numbering for level N does not restart at 1 with a change of parent at level
+# N-1.
+#
+{
+  Readonly my $SECTION_FIRST => 1;
+  Readonly my $SECTION_LAST  => 6;
 
-# paragraph (alternate encoding)
-$id = 1, $content =~ s{ (<para[^>]*>) \s* <no>[^<]*</no> }{ $1 . '<no>' . $id++ . '</no>' }xmsige;
+  # For each section level $sl:
+  for my $sl ($SECTION_FIRST..$SECTION_LAST) {
+  
+    # Match element at current section level. The markup may contain hand-coded
+    # id attributes and/or <no> elements: replace & renumber these.
+    my $match = qr/<section$sl[^>]*> (?:\s* <no>\d*<\/no>)? /x;
 
-# footnote
-$id = 1, $content =~ s{ <renvoi[^>]*> }{ '<renvoi id="re1no' . $id . '" idref="no' . $id++ . '" typeref="note">' }xmsige;
+    # initialize section number $sn for current section level 
+    my $sn = 1;
 
-# note
-$id = 1, $content =~ s{ <note[^>]*> \s* <no>[^<]*</no> }{ '<note id="no' . $id . '"><no>' . $id++ . '</no>' }xmsige;
+    # Add an id attribute and <no> element for all sections at this level
+    $content =~ s{ $match }{ "<section$sl id=\"s${sl}n${sn}\"><no>" . $sn++ . "</no>" }xmsge;
+  }
+}
 
-# citation
-$id = 1, $content =~ s{ <refbiblio[^>]*> }{ '<refbiblio id="re' . $id++ . '">' }xmsige;
+#
+# Paragraphs
+#
+# Assign a sequentially-numbered id attribute to all <para> elements.
+#
+# Some <para> elements represent numbered paragraphs: those that do will
+# contain an empty <no> element. Add a sequentially-numbered value to all <no>
+# elements.  In some cases, the value in <no> will not correspond with the
+# value in the id attribute. 
+#
+{
+  my $id = 1;
+  $content =~ s{ <para[^>]*> }{ '<para id="pa' . $id++ . '">' }xmsige;
 
-# link
-$id = 1, $content =~ s{ <liensimple \s+ id="li[^"]*" }{ '<liensimple id="li' . $id++ . '"' }xmsige;
+  my $no = 1;
+  $content =~ s{ (<para[^>]*>) \s* <no>[^<]*</no> }{ $1 . '<no>' . $no++ . '</no>' }xmsige;
+}
 
+#
+# Footnotes
+#
+{
+  my $id = 1;
+  $content =~ s{ <renvoi[^>]*> }{ '<renvoi id="re1no' . $id . '" idref="no' . $id++ . '" typeref="note">' }xmsige;
+}
+
+#
+# Notes
+#
+{
+  my $id = 1;
+  $content =~ s{ <note[^>]*> \s* <no>[^<]*</no> }{ '<note id="no' . $id . '"><no>' . $id++ . '</no>' }xmsige;
+}
+
+#
+# Citations
+#
+{
+  my $id = 1;
+  $content =~ s{ <refbiblio[^>]*> }{ '<refbiblio id="re' . $id++ . '">' }xmsige;
+}
+
+#
+# Links
+#
+{
+  my $id = 1;
+  $content =~ s{ <liensimple \s+ id="li[^"]*" }{ '<liensimple id="li' . $id++ . '"' }xmsige;
+}
+
+###############################################################################
+# Table, equation, figure images
+###############################################################################
 
 # Build a string of XLink XML for table, equation, and figure images.
 my $image_xlink_xml = "";
