@@ -11,12 +11,11 @@ class EmptyAuthorEmailPlugin extends GenericPlugin {
 	 *      the plugin will not be registered.
 	 */
 	function register($category, $path) {
-		if (parent::register($category, $path)) {
-			HookRegistry::register('metadataform::validate', array(&$this, 'callbackSaveMetadata'));
-			return true;
-		} else {
-			return false;
-		}
+	  $success = parent::register($category, $path);
+	  if ($success && $this->getEnabled()) {
+			HookRegistry::register('metadataform::validate', array(&$this, 'callbackSaveMetadata'));	    
+	  }
+	  return $success;
 	}
 
 	function getDisplayName() {
