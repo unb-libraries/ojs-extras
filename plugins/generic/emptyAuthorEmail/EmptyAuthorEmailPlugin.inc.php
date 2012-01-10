@@ -27,39 +27,6 @@ class EmptyAuthorEmailPlugin extends GenericPlugin {
 		return Locale::translate('plugins.generic.emptyAuthorEmail.description');
 	}
 
-	/**
-	 * Set the page's breadcrumbs, given the plugin's tree of items
-	 * to append.
-	 * @param $subclass boolean
-	 */
-	function setBreadcrumbs($isSubclass = false) {
-		$templateMgr =& TemplateManager::getManager();
-		$pageCrumbs = array(
-			array(
-				Request::url(null, 'user'),
-					'navigation.user'
-				),
-			array(
-				Request::url(null, 'manager'),
-					'user.role.manager'
-				)
-			);
-		if ($isSubclass) $pageCrumbs[] = array(
-			Request::url(null, 'manager', 'plugins'),
-				'manager.plugins'
-			);
-
-		$templateMgr->assign('pageHierarchy', $pageCrumbs);
-	}
-
-	/**
-	 * Display verbs for the management interface.
-	 */
-	function getManagementVerbs() {
-		$verbs = array();
-		return parent::getManagementVerbs($verbs);
-	}
-
 	/*
 	 * this hook interecepts the Action::saveMetadata hook called by saveMetadata in classes/submission/common/Action.inc.php.
 	 * $params contains one argument - the Article object being saved.
