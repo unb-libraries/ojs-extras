@@ -16,6 +16,6 @@
 
 	<!-- Empty Author Email -->
 	<message key="plugins.generic.emptyAuthorEmail.displayName">Empty Author Email Plugin</message>
-	<message key="plugins.generic.emptyAuthorEmail.description"><![CDATA[Allows empty author email addresses - sets them to none@null.com]]></message>
+	<message key="plugins.generic.emptyAuthorEmail.description">Enable this plugin to make author email address an optional field.</message>
 	<message key="author.submit.form.authorRequiredFields">The first name and last name of each author is required.</message>
 </locale>
