@@ -11,12 +11,11 @@ class EmptyAuthorEmailPlugin extends GenericPlugin {
 	 *      the plugin will not be registered.
 	 */
 	function register($category, $path) {
-		if (parent::register($category, $path)) {
-			HookRegistry::register('metadataform::validate', array(&$this, 'callbackSaveMetadata'));
-			return true;
-		} else {
-			return false;
-		}
+	  $success = parent::register($category, $path);
+	  if ($success && $this->getEnabled()) {
+			HookRegistry::register('metadataform::validate', array(&$this, 'callbackSaveMetadata'));	    
+	  }
+	  return $success;
 	}
 
 	function getDisplayName() {
@@ -25,39 +24,6 @@ class EmptyAuthorEmailPlugin extends GenericPlugin {
 
 	function getDescription() {
 		return Locale::translate('plugins.generic.emptyAuthorEmail.description');
-	}
-
-	/**
-	 * Set the page's breadcrumbs, given the plugin's tree of items
-	 * to append.
-	 * @param $subclass boolean
-	 */
-	function setBreadcrumbs($isSubclass = false) {
-		$templateMgr =& TemplateManager::getManager();
-		$pageCrumbs = array(
-			array(
-				Request::url(null, 'user'),
-					'navigation.user'
-				),
-			array(
-				Request::url(null, 'manager'),
-					'user.role.manager'
-				)
-			);
-		if ($isSubclass) $pageCrumbs[] = array(
-			Request::url(null, 'manager', 'plugins'),
-				'manager.plugins'
-			);
-
-		$templateMgr->assign('pageHierarchy', $pageCrumbs);
-	}
-
-	/**
-	 * Display verbs for the management interface.
-	 */
-	function getManagementVerbs() {
-		$verbs = array();
-		return parent::getManagementVerbs($verbs);
 	}
 
 	/*
