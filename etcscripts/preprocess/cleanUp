@@ -1,5 +1,30 @@
 #!/usr/bin/perl
 
+###############################################################################
+# cleanUp
+#
+# Massive & ugly 'god script' that cleans up not-yet-valid XML of articles
+# receiving full markup in journal production. This script:
+#   - strips / replaces old or incorrect markup
+#   - replaces / inserts id attribute values
+#   - replaces / inserts <no> elements used to number article elements
+#   - replaces / inserts markup for figures and tables
+#   - replaces / inserts XLink XML for figure & table images
+#
+# What was meant to be a quick script to solve one problem (find & replace
+# old or bad markup & character entities) has grown to include more code
+# to automate repetitious XML coding.
+#
+# While there are any number of reasons why this script should be split into
+# pieces, each intended to handle a discrete task, we'll hold off until we
+# have evaluated Tournesol, U. de M's journal production application -- it may
+# remove the need to do this kind of processing on Erudit XML files.
+#
+# In the meantime: tread carefully.  Closures have been used to restrict the 
+# number of variables in global scope & the Readonly module throws a fit on
+# attempts, accidental or otherwise, to update values intended as constants.
+###############################################################################
+
 use strict;
 use warnings;
 
@@ -10,90 +35,102 @@ use List::MoreUtils qw( any );
 use Readonly;
 
 # Usage & error messages
-
 Readonly my $USAGE          => 'Usage: cleanUp <file.xml>';
 Readonly my $NOT_FOUND      => 'File not found';
 Readonly my $NOT_READABLE   => 'File not readable';
 Readonly my $NOT_WRITEABLE  => 'File not writeable';
 
-# Replacement patterns
-# @todo: remove patterns no longer needed; journal production has
-# changed considerably since this script was written.
-
-Readonly my %REPLACEMENTS => (
-  '</?(?:web)?normal>'  => q{},
-  '<p/>'                => q{},
-  '<p>&\#12;</p>'       => q{},
-  '&\#7;'               => q{},
-  '&\#11;'              => q{},
-  '&amp;\#xAD;'         => q{},
-  '&\#x201C;'           => '&#x22;',   # left curly double quote
-  '&\#x201D;'           => '&#x22;',   # right curly double quote
-  '&\#x92;'             => '&#x27;',   # apostrophe
-);
-
 ###############################################################################
 #  Open & slurp XML file
 ###############################################################################
+# Globals set up in this block
+my $xml_file;
+my $content; 
 
-# we expect a single file -- complain if we find otherwise
-croak $USAGE if scalar @ARGV > 1;
+# begin block of file-handling code 
+{
+  # we expect a single file -- complain if we find otherwise
+  croak $USAGE if scalar @ARGV > 1;
 
-# fine.
-my ($xml_file) = @ARGV;
+  # fine.
+  ($xml_file) = @ARGV;
 
-croak $USAGE                      if ! defined $xml_file;
-croak "$NOT_FOUND: $xml_file"     if ! -f $xml_file;
-croak "$NOT_READABLE: $xml_file"  if ! -r $xml_file;
+  croak $USAGE                      if ! defined $xml_file;
+  croak "$NOT_FOUND: $xml_file"     if ! -f $xml_file;
+  croak "$NOT_READABLE: $xml_file"  if ! -r $xml_file;
 
-# slurp contents 
-open my $fh, "<", $xml_file or croak $!;
-my $content = do { local $/; <$fh> };
-close $fh;
-
+  # slurp contents 
+  open my $fh, "<", $xml_file or croak $!;
+  $content = do { local $/; <$fh> };
+  close $fh;
+}
 ###############################################################################
 #  Initialize global variables that are based on location or content of XML
 #  file. Die if any of the following aren't found or don't appear to be
-# reasonable values.
+#  reasonable values.
 ###############################################################################
+# Globals set up in this block
+my $article_id;
+my $image_file_path;
 
-# Article ID is a combination of journal ID, volume and/or issue number,
-# article type abbreviation, and article number, stored in the idproprio
-# attribute of the <article> element.  Used in image handling code, below.  Die
-# if it's not found.
+# begin block of variable initialization code
+{
+  # Article ID is a combination of journal ID, volume and/or issue number,
+  # article type abbreviation, and article number, stored in the idproprio
+  # attribute of the <article> element.  Used in image handling code, below.  Die
+  # if it's not found.
+  croak 
+    "[error] idproprio attribute is empty and required for image handling.\n".
+    "        Fix attribute and re-run script."
+    unless $content =~ /<article[^>]*?idproprio="([^"]+)"/ms;
 
-croak 
-  "[error] idproprio attribute is empty and required for image handling.\n".
-  "        Fix attribute and re-run script."
-  unless $content =~ /<article[^>]*?idproprio="([^"]+)"/ms;
+  $article_id = $1;
 
-my $article_id = $1;
-
-# Image files are stored in a directory structure that mirrors that used to 
-# store journal source files. Get the directory of the current XML file & 
-# do a quick assessment of its validity.  If it seems ok, convert it from
-# a source file path to an image file path.
-my $image_file_path = '';
-
-if (File::Spec->rel2abs(dirname($xml_file)) =~ /^\/etcdata\/journals\/etc_journals\/(.*?)\/XML/) {
-  $image_file_path = "/journalimages/$1";
+  # Image files are stored in a directory structure that mirrors that used to 
+  # store journal source files. Get the directory of the current XML file & 
+  # do a quick assessment of its validity.  If it seems ok, convert it from
+  # a source file path to an image file path.
+  if (File::Spec->rel2abs(dirname($xml_file)) =~ /^\/etcdata\/journals\/etc_journals\/(.*?)\/XML/) {
+    $image_file_path = "/journalimages/$1";
+  }
+  else {
+    # An empty string is fine, but warn someone first:
+    $image_file_path = '';
+    
+    carp "[warning] XML file '$xml_file' is not in a journals source file directory;\n".
+         "          image file paths will not be included in <pointeur href=\"\"> attributes";
+  }
 }
-else {
-  carp "[warning] XML file '$xml_file' is not in a journals source file directory;\n".
-       "          image file paths will not be included in <pointeur href=\"\"> attributes";
-}
-
 ###############################################################################
 #  Replace patterns defined above and normalize whitespace
 ###############################################################################
+# Begin block of pattern-replacment code
+{
+  # Replacement patterns
+  # @todo: remove patterns no longer needed; journal production has
+  # changed considerably since this script was written.
 
-# replace the replacements
-foreach my $find (keys %REPLACEMENTS) {
-  $content =~ s{ $find }{ $REPLACEMENTS{$find} }xmsige;
-}
+  Readonly my %REPLACEMENTS => (
+    '</?(?:web)?normal>'  => q{},
+    '<p/>'                => q{},
+    '<p>&\#12;</p>'       => q{},
+    '&\#7;'               => q{},
+    '&\#11;'              => q{},
+    '&amp;\#xAD;'         => q{},
+    '&\#x201C;'           => '&#x22;',   # left curly double quote
+    '&\#x201D;'           => '&#x22;',   # right curly double quote
+    '&\#x92;'             => '&#x27;',   # apostrophe
+  );
 
-# normalize the whitespace, but leave line breaks alone
-$content =~ s{ [ \t]{2,} }{ }xmsg;
+  # replace the replacements
+  foreach my $find (keys %REPLACEMENTS) {
+    $content =~ s{ $find }{ $REPLACEMENTS{$find} }xmsige;
+  }
+
+  # normalize the whitespace, but leave line breaks alone
+  $content =~ s{ [ \t]{2,} }{ }xmsg;
+  
+} # end block of patten-replacement code
 
 ###############################################################################
 #  Element numbering
