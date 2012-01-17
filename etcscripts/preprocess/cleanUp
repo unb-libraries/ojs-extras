@@ -4,6 +4,8 @@ use strict;
 use warnings;
 
 use Carp;
+use File::Basename;
+use File::Spec;
 use List::MoreUtils qw( any );
 use Readonly;
 
@@ -30,52 +32,6 @@ Readonly my %REPLACEMENTS => (
   '&\#x92;'             => '&#x27;',   # apostrophe
 );
 
-# Fairly extensive match for adding links to images in <figure> or <table> elements.
-Readonly my $FIGURE => qr{
-  <
-    (figure|tableau) \s+        # figure or table element ($1)
-    .*?                         # attributes, maybe
-    id="( [a-z]+ (\d+) )"       # id ($2) and numeric substring of id ($3)
-    .*?                         # more attributes
-  >    
-  .*?                           # elements preceeding <image> tag
-  
-  (                             # begin image tag capture, $4
-    <image \s+ .*?              # attributes, maybe
-    id="(im\d+)"                # image id, $5
-    .*?                         # attributes, maybe
-    typeimage="([^"]+)"         # image type, $6
-    .*?>                        # more attributes, maybe
-  )                             # end image tag capture
-  
-  .*?                           # elements following image tag, maybe
-  </\1>                         # closing tag for match in $1
-}xmsi;
-
-# Define link & pointer target types 
-Readonly my $TARGET_LARGE_IMAGE => 'large_image';
-Readonly my $TARGET_THUMBNAIL   => 'thumbnail';
-
-# English descriptions of link & pointer target types
-Readonly my %TARGET_DESC => (
-  $TARGET_LARGE_IMAGE => 'large image',
-  $TARGET_THUMBNAIL   => 'thumbnail'
-);
-
-# Suffixes to generate unique id labels for links, pointers,
-# based on target type.
-Readonly my %TARGET_LABEL_SUFFIX => (
-  $TARGET_LARGE_IMAGE => 'n',
-  $TARGET_THUMBNAIL   => 't',
-);
-
-# English labels for image types defined in Érudit DTD
-Readonly my %IMAGE_LABEL => (
-  'equation'  => 'Equation',
-  'figure'    => 'Figure',
-  'tableau'   => 'Table',
-);
-
 ###############################################################################
 #  Open & slurp XML file
 ###############################################################################
@@ -94,6 +50,38 @@ croak "$NOT_READABLE: $xml_file"  if ! -r $xml_file;
 open my $fh, "<", $xml_file or croak $!;
 my $content = do { local $/; <$fh> };
 close $fh;
+
+###############################################################################
+#  Initialize global variables that are based on location or content of XML
+#  file. Die if any of the following aren't found or don't appear to be
+# reasonable values.
+###############################################################################
+
+# Article ID is a combination of journal ID, volume and/or issue number,
+# article type abbreviation, and article number, stored in the idproprio
+# attribute of the <article> element.  Used in image handling code, below.  Die
+# if it's not found.
+
+croak 
+  "[error] idproprio attribute is empty and required for image handling.\n".
+  "        Fix attribute and re-run script."
+  unless $content =~ /<article[^>]*?idproprio="([^"]+)"/ms;
+
+my $article_id = $1;
+
+# Image files are stored in a directory structure that mirrors that used to 
+# store journal source files. Get the directory of the current XML file & 
+# do a quick assessment of its validity.  If it seems ok, convert it from
+# a source file path to an image file path.
+my $image_file_path = '';
+
+if (File::Spec->rel2abs(dirname($xml_file)) =~ /^\/etcdata\/journals\/etc_journals\/(.*?)\/XML/) {
+  $image_file_path = "/journalimages/$1";
+}
+else {
+  carp "[warning] XML file '$xml_file' is not in a journals source file directory;\n".
+       "          image file paths will not be included in <pointeur href=\"\"> attributes";
+}
 
 ###############################################################################
 #  Replace patterns defined above and normalize whitespace
@@ -189,85 +177,240 @@ $content =~ s{ [ \t]{2,} }{ }xmsg;
 }
 
 ###############################################################################
-# Table, equation, figure images
+# Images: tables, equations, and figures
+#
+# We expect <figure> elements to have minimal encoding. The only manual
+# encoding we require is the legend language attribute, legend text, and image
+# type attribute ('figure', 'equation', or 'tableau'), e.g.,
+#
+# <figure id="">
+#    <no></no>
+#    <legende lang="en">
+#      <alinea>Legend goes here</alinea>
+#    </legende>
+#    <objetmedia>
+#      <image id="" typeimage="figure"/>
+#    </objetmedia>
+#  </figure>
+#
+# For each <figure> or <tableau> element:
+#
+#   * Fill in <figure> id attribute based on image type. Images of each type
+#     are numbered across the entire article, with a prefix based on type:
+#       figure   => fig1, fig2, fig3 ...
+#       equation => eq1, eq2, ...
+#       tableau  => ta1, ta2, ...
+# 
+#   * If image type is 'figure' or 'tableau', follow <figure> with <no>
+#     element containing text description of image, e.g., "Figure 7",
+#     "Table 2".
+#
+#   * Fill in <image> id attribute. Images are numbered sequentially across the
+#     entire article and have 'im' as a prefix, e.g., 'im1', 'im2', 'im3',
+#     regardless of image type.
+#
+#   * Generate XLink <pointeur> elements to point to source images and <lien>
+#     elements to define image links (e.g., link full-size image to thumnbnail)
+#
 ###############################################################################
-
-# Build a string of XLink XML for table, equation, and figure images.
-my $image_xlink_xml = "";
-
-# Assign each image a numeric id 
-my $image_id_no = 0;
-
-FIGURE:
-  while ($content =~ /$FIGURE/xmsig) {
+# Begin massive block of image handling code
+{
+  #############################################################################
+  # Readonly constants for finding, numbering, and labelling images
+  #############################################################################  
   
-    my ( $element_id, 
-         $element_id_no, 
-         $image_tag, 
-         $image_id, 
-         $image_type ) = ($2, $3, $4, $5, $6);
-         
-    # Érudit DTD restricts $image_type to defined values;
-    # give up if we find an unhandled image type
-    
-    croak "Unknown image type: $image_type" 
-      if ! ( $image_type eq 'figure' || 
-             $image_type eq 'equation' || 
-             $image_type eq 'tableau' );
+  # Fairly extensive match for adding links to images in <figure> or <table> elements.
+  Readonly my $FIGURE_REGEXP => qr{
+    (
+      <                           # capture entire <figure> or <tableau> element ($1)
+      (figure|tableau)            # figure or table element ($2)
+      .*?                         # attributes, maybe
+      >                           # end <figure> or <tableau>
+        .*?                       # elements preceeding <image> tag
+          <image \s+ .*?          # attributes, maybe
+            typeimage="([^"]+)"   # image type, $3
+          .*?\/>                  # more image attributes, maybe
+        .*?                       # elements following image tag, maybe
+      </\2>                       # closing tag for match in $2
+    )
+  }xmsi;
+  
+  # Allowable values for typeimage attribute of <image> element
+  Readonly my @IMAGE_TYPES => qw( equation figure tableau );
+  
+  # Labels corresponding to typeimage attribute values
+  Readonly my %IMAGE_TYPE_LABEL => (
+    'equation'  => 'Equation',
+    'figure'    => 'Figure',
+    'tableau'   => 'Table',
+  );
+  
+  # Type-specific prefixes for <figure> ID attribute value
+  Readonly my %FIGURE_ID_PREFIX => (
+    'equation'  => 'eq',
+    'figure'    => 'fig',
+    'tableau'   => 'ta',
+  );
+  
+  # Prefix for <image> ID attribute value
+  Readonly my $IMAGE_ID_PREFIX => 'im';
 
-    # increment the image id, then
-    $image_id_no++;
-    
-    # helpful comment to group pointeur, link elements
-    $image_xlink_xml .= "<!-- Figure $image_id_no -->";
+  #############################################################################  
+  # Readonly constants for generating image pointers & links
+  #############################################################################  
 
-    # Image type 'equation' needs a pointer to a large image only,
-    # no thumbnail required
-     
-    if ($image_type eq 'equation') {
-    
-      # add pointer to large image of equation
-      $image_xlink_xml .= 
-        encode_pointer( {
-          target_type   => $TARGET_LARGE_IMAGE,
-          element_id    => $element_id,
-          element_id_no => $element_id_no,
-          image_type    => $image_type,
-          image_id_no   => $image_id_no,
-        });
-        
-        # we're done here.
-        next FIGURE;
-    }
+  # Define link & pointer target types 
+  Readonly my $TARGET_LARGE_IMAGE => 'large_image';
+  Readonly my $TARGET_THUMBNAIL   => 'thumbnail';
 
-    # all other image types require pointer & link to thumbnail,
-    # and pointer & link to large image
-    
-    foreach my $target_type ($TARGET_THUMBNAIL, $TARGET_LARGE_IMAGE) {
+  # English descriptions of link & pointer target types
+  Readonly my %TARGET_DESC => (
+    $TARGET_LARGE_IMAGE => 'large image',
+    $TARGET_THUMBNAIL   => 'thumbnail'
+  );
 
-      $image_xlink_xml .= 
-        encode_pointer( {
-          target_type   => $target_type,
-          element_id    => $element_id,
-          element_id_no => $element_id_no,
-          image_type    => $image_type,
-          image_id_no   => $image_id_no,
-        });
+  # Suffixes to generate unique id labels for links, pointers,
+  # based on target type.
+  Readonly my %TARGET_SUFFIX => (
+    $TARGET_LARGE_IMAGE => 'n',
+    $TARGET_THUMBNAIL   => 't',
+  );  
+  
+  #############################################################################  
+  # Set up loop variables
+  #############################################################################
+  
+  # Current image id 
+  my $image_id = 1;
+  
+  # Current figure id, indexed by type
+  my %figure_id = ();
+  foreach my $image_type (keys %FIGURE_ID_PREFIX) {
+    $figure_id{$image_type} = 1;
+  }
+  
+  # We look for <figure> or <tableau> elements, modify them as needed, then
+  # swap them back into $content.  Search a copy of $content so the swap
+  # doesn't disrupt the search.
+  my $search_content = $content;
+  
+  # We also, as we go, build <pointeur> elements to point to source images
+  # and <lien> elements to define image links.
+  my $xlink_xml = '';
+
+  
+  #############################################################################  
+  # Begin massive loop of image handling
+  #############################################################################
+  
+  FIGURE:
+    while ($search_content =~ /$FIGURE_REGEXP/xmsig) {
+
+      # Grab the matched portions.  Initialize a spare copy ($matched_element)
+      # of the matched element: we will find it & replace it with the modified
+      # element we'll work on in $element.
       
-      $image_xlink_xml .= 
-        encode_link( {
-          target_type   => $target_type,
-          element_id    => $element_id,
-          element_id_no => $element_id_no,
-          image_type    => $image_type,
-          image_id_no   => $image_id_no,
-        });
-    }
+      my ( $matched_element,
+           $element, 
+           $element_name, 
+           $image_type ) = ($1, $1, $2, $3);
 
-  } # end FIGURE: while (content matches $FIGURE)
+      # Validation on the cheap
+      croak "Bad image type: $image_type" 
+        if ! grep {/$image_type/} @IMAGE_TYPES;
+        
+      # Drop an ID into the <figure> or <tableau> element & increment 
+      $element =~ s/<$element_name[^>]*?>/<$element_name id="$FIGURE_ID_PREFIX{$image_type}$figure_id{$image_type}">/;
+        
+      # If image is a figure or table (i.e., not an equation), replace or
+      # insert a <no> elememt with a label and the figure ID used in the
+      # <figure> ID attribute
+      if ($image_type ne 'equation') {
+        
+        # Replace or insert <no> after <figure> or <tableau>
+        $element =~ s{
+          (
+            <$element_name[^>]*?>           # capture entire <figure> or <tableau> $1
+          )
+          \s*                               # some whitespace, maybe
+          (?:                               # begin choice of:
+            (?:<no\/>)                      # <no/>
+              |                             # OR
+            (?:<no>[^<]*<\/no>)             # <no>....</no>
+          )?                                # end choice: may or may not be present
+          }{$1<no>$IMAGE_TYPE_LABEL{$image_type} $figure_id{$image_type}</no>}xms;
+      }
 
-# Add link & pointer XML after '<grlien>' placeholder
-$content =~ s/(<grlien[^>]*>)/$1\n$image_xlink_xml/;
+      # Next, replace or insert image ID attribute
+      $element =~ s{
+        <image \s+
+          (.*?)             # attributes, maybe: $1
+          id="[^"]*"        # image attribute, maybe
+          (.*?)             # more attributes, maybe: $2
+        />                   # close element
+      }{ <image id="$IMAGE_ID_PREFIX$image_id" $1 $2 /> }xms;
+      
+      # Search for the $matched_element & replace it with our updated version
+      $matched_element = quotemeta($matched_element);
+      $content =~ s/$matched_element/$element/;
+      
+      #########################################################################
+      # Generate <pointeur> and <lien> elements
+      #########################################################################
+      
+      # Helpful commments
+      $xlink_xml .= "<!-- $IMAGE_TYPE_LABEL{$image_type} $figure_id{$image_type} -->\n";
+      
+      TARGET:
+        foreach my $target_type ($TARGET_THUMBNAIL, $TARGET_LARGE_IMAGE) {
+          
+        if ($target_type eq $TARGET_THUMBNAIL and $image_type eq 'equation') {
+          # Equations don't have thumbnails.  Move on.
+          next TARGET;
+        }
+        
+        # Create a pointer element for the current image & target type
+        $xlink_xml .=
+          '<pointeur '. 
+            'xlink:href="'.                                                                       # xlink:href="/path/nflds26_1art01_fig4.jpg"
+                $image_file_path .'/'. $article_id .'_'. $FIGURE_ID_PREFIX{$image_type} . $figure_id{$image_type} .'.jpg" '.   
+            'xlink:label="'. $IMAGE_ID_PREFIX . $image_id . $TARGET_SUFFIX{$target_type} .'" '.   # xlink:label="im6n"
+            'xlink:title="'.                                                                      # xlink:title="Large image of Figure 4"
+                ucfirst($TARGET_DESC{$target_type}) .' of '. 
+                $IMAGE_TYPE_LABEL{$image_type} .' '. $figure_id{$image_type} .'" '.                             
+            'desc="'. $article_id .'_'. $FIGURE_ID_PREFIX{$image_type} . $figure_id{$image_type} .'.jpg" '.         # desc="nflds26_1art01_fig4.jpg"
+            'typemime="image:jpeg" '.
+            'xlink:type="locator"/>';
+            
+        # Equations have no thumbnails so they need no <lien> elements.
+        # Create <lien> elements for tables & figures.
+        if ($image_type ne 'equation') {
+          $xlink_xml .= 
+            '<lien '.
+              'xlink:type="arc" '.
+              'xlink:from="'. $IMAGE_ID_PREFIX . $image_id .'" '.                                 # xlink:from="im6"
+              'xlink:to="'. $IMAGE_ID_PREFIX . $image_id . $TARGET_SUFFIX{$target_type} .'" '.    # xlink:to="im6n"
+              'xlink:title="Display '.                                                            # xlink:title="Display large image of Figure 4"
+                $TARGET_DESC{$target_type} .' of '. 
+                $IMAGE_TYPE_LABEL{$image_type} .' '. $figure_id{$image_type} .'" />';
+        }
+        
+      } # end TARGET
+        
+      # Increment figure & image IDs for the next round
+      $figure_id{$image_type}++;
+      $image_id++;
+      
+    } # end FIGURE
+    
+    # Insert or replace <grlien> element with new XLink XML
+    $content =~ s/<grlien(.*?)>(?:.*?<\/grlien>)?/<grlien$1>$xlink_xml<\/grlien>/ms;
+    
+} # end massive block of image handling code
+
+###############################################################################
+# Write modified XML back to source file
+###############################################################################
 
 # This strikes me as risky.
 croak "$NOT_WRITEABLE: $xml_file" if ! open FILE, ">$xml_file";
@@ -276,44 +419,5 @@ close FILE;
 
 exit 0;
 
-## Utilities to encode <lien>, <pointeur> elements ##
 
-sub encode_pointer {
-  my ($arg_ref) = @_;
-  
-  croak "Usage: fixme" 
-    if any { ! defined $arg_ref->{$_} } 
-      qw(target_type element_id element_id_no image_type image_id_no);
 
-  my $pointer = <<"END_POINTER";
-<!-- $TARGET_DESC{ $arg_ref->{'target_type'} }  as locator -->
-<pointeur 
-  xlink:href="$arg_ref->{'element_id'}.jpg" 
-  xlink:label="im$arg_ref->{'image_id_no'}$TARGET_LABEL_SUFFIX{$arg_ref->{'target_type'}}"
-  xlink:title="@{[ ucfirst $TARGET_DESC{$arg_ref->{'target_type'}} ]} of $IMAGE_LABEL{$arg_ref->{'image_type'}} $arg_ref->{'element_id_no'}"
-  desc="$arg_ref->{'element_id'}.jpg"
-  typemime="image:jpeg"
-  xlink:type="locator"/>
-END_POINTER
-
-  return $pointer;
-}
-
-sub encode_link {
-  my ($arg_ref) = @_;
-  
-  croak "Usage: fixme" 
-    if any { ! defined $arg_ref->{$_} } 
-      qw(target_type element_id element_id_no image_type image_id_no);
-  
-  my $link = <<"END_LINK";
-<!-- Arc defined for viewing the $TARGET_DESC{$arg_ref->{'target_type'}} -->  
-<lien 
-  xlink:type="arc" 
-  xlink:from="im$arg_ref->{'image_id_no'}"
-  xlink:to="im$arg_ref->{'image_id_no'}$TARGET_LABEL_SUFFIX{$arg_ref->{'target_type'}}"
-  xlink:title="Display $TARGET_DESC{$arg_ref->{'target_type'}} of $IMAGE_LABEL{$arg_ref->{'image_type'}} $arg_ref->{'element_id_no'}"/>  
-END_LINK
-
-  return $link;
-}
