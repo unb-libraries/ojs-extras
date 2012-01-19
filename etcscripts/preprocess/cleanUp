@@ -301,27 +301,6 @@ my $image_file_path;
   Readonly my $IMAGE_ID_PREFIX => 'im';
 
   #############################################################################  
-  # Readonly constants for generating image pointers & links
-  #############################################################################  
-
-  # Define link & pointer target types 
-  Readonly my $TARGET_LARGE_IMAGE => 'large_image';
-  Readonly my $TARGET_THUMBNAIL   => 'thumbnail';
-
-  # English descriptions of link & pointer target types
-  Readonly my %TARGET_DESC => (
-    $TARGET_LARGE_IMAGE => 'large image',
-    $TARGET_THUMBNAIL   => 'thumbnail'
-  );
-
-  # Suffixes to generate unique id labels for links, pointers,
-  # based on target type.
-  Readonly my %TARGET_SUFFIX => (
-    $TARGET_LARGE_IMAGE => 'n',
-    $TARGET_THUMBNAIL   => 't',
-  );  
-  
-  #############################################################################  
   # Set up loop variables
   #############################################################################
   
@@ -338,11 +317,6 @@ my $image_file_path;
   # swap them back into $content.  Search a copy of $content so the swap
   # doesn't disrupt the search.
   my $search_content = $content;
-  
-  # We also, as we go, build <pointeur> elements to point to source images
-  # and <lien> elements to define image links.
-  my $xlink_xml = '';
-
   
   #############################################################################  
   # Begin massive loop of image handling
@@ -399,57 +373,11 @@ my $image_file_path;
       $matched_element = quotemeta($matched_element);
       $content =~ s/$matched_element/$element/;
       
-      #########################################################################
-      # Generate <pointeur> and <lien> elements
-      #########################################################################
-      
-      # Helpful commments
-      $xlink_xml .= "<!-- $IMAGE_TYPE_LABEL{$image_type} $figure_id{$image_type} -->\n";
-      
-      TARGET:
-        foreach my $target_type ($TARGET_THUMBNAIL, $TARGET_LARGE_IMAGE) {
-          
-        if ($target_type eq $TARGET_THUMBNAIL and $image_type eq 'equation') {
-          # Equations don't have thumbnails.  Move on.
-          next TARGET;
-        }
-        
-        # Create a pointer element for the current image & target type
-        $xlink_xml .=
-          '<pointeur '. 
-            'xlink:href="'.                                                                       # xlink:href="/path/nflds26_1art01_fig4.jpg"
-                $image_file_path .'/'. $article_id .'_'. $FIGURE_ID_PREFIX{$image_type} . $figure_id{$image_type} .'.jpg" '.   
-            'xlink:label="'. $IMAGE_ID_PREFIX . $image_id . $TARGET_SUFFIX{$target_type} .'" '.   # xlink:label="im6n"
-            'xlink:title="'.                                                                      # xlink:title="Large image of Figure 4"
-                ucfirst($TARGET_DESC{$target_type}) .' of '. 
-                $IMAGE_TYPE_LABEL{$image_type} .' '. $figure_id{$image_type} .'" '.                             
-            'desc="'. $article_id .'_'. $FIGURE_ID_PREFIX{$image_type} . $figure_id{$image_type} .'.jpg" '.         # desc="nflds26_1art01_fig4.jpg"
-            'typemime="image:jpeg" '.
-            'xlink:type="locator"/>';
-            
-        # Equations have no thumbnails so they need no <lien> elements.
-        # Create <lien> elements for tables & figures.
-        if ($image_type ne 'equation') {
-          $xlink_xml .= 
-            '<lien '.
-              'xlink:type="arc" '.
-              'xlink:from="'. $IMAGE_ID_PREFIX . $image_id .'" '.                                 # xlink:from="im6"
-              'xlink:to="'. $IMAGE_ID_PREFIX . $image_id . $TARGET_SUFFIX{$target_type} .'" '.    # xlink:to="im6n"
-              'xlink:title="Display '.                                                            # xlink:title="Display large image of Figure 4"
-                $TARGET_DESC{$target_type} .' of '. 
-                $IMAGE_TYPE_LABEL{$image_type} .' '. $figure_id{$image_type} .'" />';
-        }
-        
-      } # end TARGET
-        
       # Increment figure & image IDs for the next round
       $figure_id{$image_type}++;
       $image_id++;
       
     } # end FIGURE
-    
-    # Insert or replace <grlien> element with new XLink XML
-    $content =~ s/<grlien(.*?)>(?:.*?<\/grlien>)?/<grlien$1>$xlink_xml<\/grlien>/ms;
     
 } # end massive block of image handling code
 
@@ -469,62 +397,246 @@ my $image_file_path;
   # Die if the XML's not ok
   croak "[error] Invalid XML. Fix XML and re-run script: $@" if $@;
 
-  # Count things.
+  # Begin a block in which we count things.
+  {
+    # Create a new <infoarticle> node & add child elements
+    my $article_info_node = XML::LibXML::Element->new('infoarticle');
+  
+    # We can't determine pagination from the markup: append <pagination> and
+    # <nbpage> elements from source doc
+    $article_info_node->appendChild($doc->findnodes('/article/admin/infoarticle/pagination')->get_node(1));
+    $article_info_node->appendChild($doc->findnodes('/article/admin/infoarticle/nbpage')->get_node(1));
+  
+    # Count numbered paragraphs: <para> elements child <no> element
+    my @para_nodes = $doc->findnodes('//para[child::no]');
+    $article_info_node->appendTextChild('nbpara', scalar(@para_nodes));
+  
+    # Count words in <corps>
+    my @words = split(/\s+/ms, $doc->find('/article/corps')->get_node(1)->textContent);
+    $article_info_node->appendTextChild('nbmot', scalar(@words));
+  
+    # Count figures: <figure> elements with child <image typeimage="figure">
+    my @figure_nodes = $doc->findnodes('//figure[descendant::image[@typeimage=\'figure\']]');
+    $article_info_node->appendTextChild('nbfig', scalar(@figure_nodes));
+  
+    # Count tables: <tableau> elements
+    my @table_nodes = $doc->findnodes('//tableau');
+    $article_info_node->appendTextChild('nbtabl', scalar(@table_nodes));
+  
+    # Count equations: <figure> elements with child <image typeimage='equation'>
+    my @equation_nodes = $doc->findnodes('//figure[descendant::image[@typeimage=\'equation\']]');
+    $article_info_node->appendTextChild('nbeq', scalar(@equation_nodes));
+  
+    # All media objects: <objetmedia> elements
+    my @media_object_nodes = $doc->findnodes('//objetmedia');
+    $article_info_node->appendTextChild('nbom', scalar(@media_object_nodes));
 
-  # Create a new <infoarticle> node & add child elements
-  my $article_info_node = XML::LibXML::Element->new('infoarticle');
+    # All images: <image> elements
+    my @image_nodes = $doc->findnodes('//image');
+    $article_info_node->appendTextChild('nbimage', scalar(@image_nodes));
   
-  # We can't determine pagination from the markup: append <pagination> and
-  # <nbpage> elements from source doc
-  $article_info_node->appendChild($doc->findnodes('/article/admin/infoarticle/pagination')->get_node(1));
-  $article_info_node->appendChild($doc->findnodes('/article/admin/infoarticle/nbpage')->get_node(1));
+    # Audio files: <audio> elements
+    my @audio_nodes = $doc->findnodes('//audio');
+    $article_info_node->appendTextChild('nbaudio', scalar(@audio_nodes));
   
-  # Count numbered paragraphs: <para> elements child <no> element
-  my @para_nodes = $doc->findnodes('//para[child::no]');
-  $article_info_node->appendTextChild('nbpara', scalar(@para_nodes));
+    # video files: <video> elements
+    my @video_nodes = $doc->findnodes('//video');
+    $article_info_node->appendTextChild('nbvideo', scalar(@video_nodes));
   
-  # Count words in <corps>
-  my @words = split(/\s+/ms, $doc->find('/article/corps')->get_node(1)->textContent);
-  $article_info_node->appendTextChild('nbmot', scalar(@words));
-  
-  # Count figures: <figure> elements with child <image typeimage="figure">
-  my @figure_nodes = $doc->findnodes('//figure[descendant::image[@typeimage=\'figure\']]');
-  $article_info_node->appendTextChild('nbfig', scalar(@figure_nodes));
-  
-  # Count tables: <tableau> elements
-  my @table_nodes = $doc->findnodes('//tableau');
-  $article_info_node->appendTextChild('nbtabl', scalar(@table_nodes));
-  
-  # Count equations: <figure> elements with child <image typeimage='equation'>
-  my @equation_nodes = $doc->findnodes('//figure[descendant::image[@typeimage=\'equation\']]');
-  $article_info_node->appendTextChild('nbeq', scalar(@equation_nodes));
-  
-  # All media objects: <objetmedia> elements
-  my @media_object_nodes = $doc->findnodes('//objetmedia');
-  $article_info_node->appendTextChild('nbom', scalar(@media_object_nodes));
+    # Biblio references: <refbiblio> elements
+    my @ref_nodes = $doc->findnodes('//refbiblio');
+    $article_info_node->appendTextChild('nbrefbiblio', scalar(@ref_nodes));
 
-  # All images: <image> elements
-  my @image_nodes = $doc->findnodes('//image');
-  $article_info_node->appendTextChild('nbimage', scalar(@image_nodes));
+    # Notes: <note> elements
+    my @note_nodes = $doc->findnodes('//note');
+    $article_info_node->appendTextChild('nbnote', scalar(@note_nodes));
   
-  # Audio files: <audio> elements
-  my @audio_nodes = $doc->findnodes('//audio');
-  $article_info_node->appendTextChild('nbaudio', scalar(@audio_nodes));
+    # Replace existing <infoarticle> with our more better one
+    $doc->findnodes('/article/admin/infoarticle')->get_node(1)->replaceNode($article_info_node);
+    
+  } # end block in which we count things
   
-  # video files: <video> elements
-  my @video_nodes = $doc->findnodes('//video');
-  $article_info_node->appendTextChild('nbvideo', scalar(@video_nodes));
-  
-  # Biblio references: <refbiblio> elements
-  my @ref_nodes = $doc->findnodes('//refbiblio');
-  $article_info_node->appendTextChild('nbrefbiblio', scalar(@ref_nodes));
+  # Begin a block to add XLink markup for images and notes
+  {
+    my %figure_desc = (
+      'equation'  => 'equation',
+      'figure'    => 'figure',
+      'tableau'   => 'table',
+    );
+    my $grlien_node = XML::LibXML::Element->new('grlien');
+    
+    # Get all the tables and figures
+    foreach my $figure_node ($doc->findnodes('descendant::*[name()="figure" or name()="tableau"]')) {
+      
+      my $figure_id = $figure_node->getAttribute('id');
+      ( my $figure_no = $figure_id )    =~ s/[^\d]+//;
 
-  # Notes: <note> elements
-  my @note_nodes = $doc->findnodes('//note');
-  $article_info_node->appendTextChild('nbnote', scalar(@note_nodes));
-  
-  # Replace existing <infoarticle> with our more better one
-  $doc->findnodes('/article/admin/infoarticle')->get_node(1)->replaceNode($article_info_node);
+      my $image_node = $figure_node->findnodes('objetmedia/image')->get_node(1);
+      my $image_type = $image_node->getAttribute('typeimage');
+      my $image_id = $image_node->getAttribute('id');
+      
+      # <!-- Figure 7 -->
+      $grlien_node->appendChild($doc->createComment(' '.  ucfirst($figure_desc{$image_type}) . " $figure_no "));
+      
+      # All images have a pointer to a large version;
+      # <pointeur 
+      #   xlink:href="/journalimages/AGEO/2003/Vol_39/No_02/ageo39_2art03_eq1.jpg" 
+      #   xlink:label="im8n" 
+      #   xlink:title="Large image of Equation 1" 
+      #   typemime="image:jpeg" 
+      #   desc="ageo39_2art03_eq1.jpg" 
+      #   xlink:type="locator"/>
+      my $image_pointer = XML::LibXML::Element->new('pointeur');
+      $image_pointer->setAttribute('xlink:href',  "$image_file_path/${article_id}_${figure_id}.jpg");
+      $image_pointer->setAttribute('xlink:label', "${image_id}n");
+      $image_pointer->setAttribute('xlink:title', "Large image of ". ucfirst($figure_desc{$image_type}) . " $figure_no");
+      $image_pointer->setAttribute('xlink:type',  'locator'); 
+      $image_pointer->setAttribute('typemime',    'image:jpeg');
+      $image_pointer->setAttribute('desc',        "${article_id}_${figure_id}.jpg");
+      
+      $grlien_node->appendChild($image_pointer);
+      
+      # Figures and tables (i.e., all but equations) also have thumbail images
+      # and links to point from one to the other.  Carry on, if current image is 
+      # not an equation
+      next if $image_type eq 'equation';
+      
+      # <pointeur 
+      #   xlink:href="/journalimages/AGEO/2003/Vol_39/No_02/ageo39_2art03_fig6.jpg" 
+      #   xlink:label="im7t" 
+      #   xlink:title="Thumbnail of Figure 6" 
+      #   typemime="image:jpeg"
+      #   desc="ageo39_2art03_fig6.jpg"
+      #   xlink:type="locator"/>
+      my $thumbnail_pointer = XML::LibXML::Element->new('pointeur');
+      $thumbnail_pointer->setAttribute('xlink:href',  "$image_file_path/${article_id}_${figure_id}.jpg");
+      $thumbnail_pointer->setAttribute('xlink:label', "${image_id}t");
+      $thumbnail_pointer->setAttribute('xlink:title', "Thumbnail of ". ucfirst($figure_desc{$image_type}) . " $figure_no");
+      $thumbnail_pointer->setAttribute('xlink:type',  'locator'); 
+      $thumbnail_pointer->setAttribute('typemime',    'image:jpeg');
+      $thumbnail_pointer->setAttribute('desc',        "${article_id}_${figure_id}.jpg");
+      
+      $grlien_node->appendChild($thumbnail_pointer);
+      
+      # Create link for large image:
+      # <lien 
+      #   xlink:type="arc" 
+      #   xlink:from="im7" 
+      #   xlink:to="im7n" 
+      #   xlink:show="embed" 
+      #   xlink:actuate="onRequest" 
+      #   xlink:title="Display large image of Figure 6"/>
+      my $image_link = XML::LibXML::Element->new('lien');
+      $image_link->setAttribute('xlink:type',     'arc');
+      $image_link->setAttribute('xlink:from',     $image_id);
+      $image_link->setAttribute('xlink:to',       "${image_id}n");
+      $image_link->setAttribute('xlink:show',     'embed');
+      $image_link->setAttribute('xlink:actuate',  'onRequest');
+      $image_link->setAttribute('xlink:title',    'Display large image of '. ucfirst($figure_desc{$image_type}) . " $figure_no");
+      
+      $grlien_node->appendChild($image_link);
+      
+      # and the thumbnail:
+      # <lien 
+      #   xlink:type="arc" 
+      #   xlink:from="im7" 
+      #   xlink:to="im7t" 
+      #   xlink:show="embed" 
+      #   xlink:actuate="onLoad" 
+      #   xlink:title="Display Thumbnail of Figure 6"/>
+      my $thumbnail_link = XML::LibXML::Element->new('lien');
+      $thumbnail_link->setAttribute('xlink:type',     'arc');
+      $thumbnail_link->setAttribute('xlink:from',     $image_id);
+      $thumbnail_link->setAttribute('xlink:to',       "${image_id}t");
+      $thumbnail_link->setAttribute('xlink:show',     'embed');
+      $thumbnail_link->setAttribute('xlink:actuate',  'onLoad');
+      $thumbnail_link->setAttribute('xlink:title',    'Display thumbnail of '. ucfirst($figure_desc{$image_type}) . " $figure_no");
+      
+    }
+    
+    # Get all notes
+    foreach my $node ($doc->findnodes('//note')) {
+      my $id = $node->getAttribute('id');
+      ( my $no = $id ) =~ s/no//;
+      
+      # <pointeur 
+      #   xlink:label="no1" 
+      #   xlink:href="#xpointer(id('no1')/no)" 
+      #   xlink:title="Note 1" 
+      #   typemime="none" 
+      #   xlink:type="locator"/>
+      my $note_pointer = XML::LibXML::Element->new('pointeur');
+      $note_pointer->setAttribute('xlink:label',  $id);
+      $note_pointer->setAttribute('xlink:href',   "#xpointer(id('$id')/no)");
+      $note_pointer->setAttribute('xlink:title',  "Note $no");
+      $note_pointer->setAttribute('typemime',     'none');      
+      $note_pointer->setAttribute('xlink:type',   'locator');
+      
+      # <pointeur
+      #   xlink:label="re1no1"
+      #   xlink:href="#re1no1"
+      #   xlink:title="Return to Note 1" 
+      #   xlink:type="locator"
+      #   typemime="none"/>
+      my $return_pointer = XML::LibXML::Element->new('pointeur');
+      $return_pointer->setAttribute('xlink:label',  "re$no$id");
+      $return_pointer->setAttribute('xlink:href',   "#re$no$id");
+      $return_pointer->setAttribute('xlink:title',  "Return to Note $no");
+      $return_pointer->setAttribute('typemime',     'none');      
+      $return_pointer->setAttribute('xlink:type',   'locator');
+      
+      # <lien
+      #   xlink:from="re1no1"
+      #   xlink:to="no1"
+      #   xlink:title="Go to Note 1"
+      #   xlink:actuate="onRequest"
+      #   xlink:show="replace"
+      #   xlink:type="arc"/>
+      my $note_link = XML::LibXML::Element->new('lien');
+      $note_link->setAttribute('xlink:from',    "re$no$id");
+      $note_link->setAttribute('xlink:to',      $id);
+      $note_link->setAttribute('xlink:title',   "Go to Note $no");
+      $note_link->setAttribute('xlink:actuate', 'onRequest');
+      $note_link->setAttribute('xlink:show',    'replace');    
+      $note_link->setAttribute('xlink:type',    'arc');
+      
+      # <lien 
+      #   xlink:from="no1" 
+      #   xlink:to="re1no1" 
+      #   xlink:title="Return to Anchor for Note 1" 
+      #   xlink:actuate="onRequest" 
+      #   xlink:show="replace" 
+      #   xlink:type="arc"/>
+      my $return_link = XML::LibXML::Element->new('lien');
+      $return_link->setAttribute('xlink:from',    $id);
+      $return_link->setAttribute('xlink:to',      "re$no$id");
+      $return_link->setAttribute('xlink:title',   "Return to Anchor for Note $no");
+      $return_link->setAttribute('xlink:actuate', 'onRequest');
+      $return_link->setAttribute('xlink:show',    'replace');    
+      $return_link->setAttribute('xlink:type',    'arc');
+
+      # <!-- Figure 7 -->
+      $grlien_node->appendChild($doc->createComment(" Note $no "));
+
+      # add note pointers & links
+      $grlien_node->appendChild($note_pointer);
+      $grlien_node->appendChild($return_pointer);
+      $grlien_node->appendChild($note_link);
+      $grlien_node->appendChild($return_link);
+    }
+
+    # Does <grlien> exist in $doc?
+    if ($doc->findnodes('/article/grlien')) {
+      # replace it with updated version
+      $doc->findnodes('/article/grlien')->get_node(1)->replaceNode($grlien_node);
+    }
+    else {
+      # insert new <grlien>
+      # insertBefore, insertAfter must be invoked from parent of ref node
+      $doc->documentElement()->insertBefore($grlien_node, $doc->findnodes('/article/liminaire')->get_node(1));
+    }
+    
+  } # end XLink markup in <grlien>
   
   # write modified XML back to $content
   $content = $doc->toString();
