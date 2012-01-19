@@ -10,6 +10,7 @@
 #   - replaces / inserts <no> elements used to number article elements
 #   - replaces / inserts markup for figures and tables
 #   - replaces / inserts XLink XML for figure & table images
+#   - replaces / inserts <infoarticle> with page, word, figure, etc. counts
 #
 # What was meant to be a quick script to solve one problem (find & replace
 # old or bad markup & character entities) has grown to include more code
@@ -23,6 +24,12 @@
 # In the meantime: tread carefully.  Closures have been used to restrict the 
 # number of variables in global scope & the Readonly module throws a fit on
 # attempts, accidental or otherwise, to update values intended as constants.
+#
+# @todo
+# split this file into multiple scripts & write a bash file to run them
+# -- string replacer
+# -- element numberer
+# -- XML fixer(s) / transformers
 ###############################################################################
 
 use strict;
@@ -33,6 +40,7 @@ use File::Basename;
 use File::Spec;
 use List::MoreUtils qw( any );
 use Readonly;
+use XML::LibXML;
 
 # Usage & error messages
 Readonly my $USAGE          => 'Usage: cleanUp <file.xml>';
@@ -444,6 +452,83 @@ my $image_file_path;
     $content =~ s/<grlien(.*?)>(?:.*?<\/grlien>)?/<grlien$1>$xlink_xml<\/grlien>/ms;
     
 } # end massive block of image handling code
+
+###############################################################################
+# At this point, the XML should be valid....
+###############################################################################
+# Begin block of XML manipulation code... maybe?
+{
+  my $parser = XML::LibXML->new();
+  my $doc;
+  
+  # Load $doc with $content....
+  eval { 
+    $doc = $parser->parse_string($content);
+  };
+  
+  # Die if the XML's not ok
+  croak "[error] Invalid XML. Fix XML and re-run script: $@" if $@;
+
+  # Count things.
+
+  # Create a new <infoarticle> node & add child elements
+  my $article_info_node = XML::LibXML::Element->new('infoarticle');
+  
+  # We can't determine pagination from the markup: append <pagination> and
+  # <nbpage> elements from source doc
+  $article_info_node->appendChild($doc->findnodes('/article/admin/infoarticle/pagination')->get_node(1));
+  $article_info_node->appendChild($doc->findnodes('/article/admin/infoarticle/nbpage')->get_node(1));
+  
+  # Count numbered paragraphs: <para> elements child <no> element
+  my @para_nodes = $doc->findnodes('//para[child::no]');
+  $article_info_node->appendTextChild('nbpara', scalar(@para_nodes));
+  
+  # Count words in <corps>
+  my @words = split(/\s+/ms, $doc->find('/article/corps')->get_node(1)->textContent);
+  $article_info_node->appendTextChild('nbmot', scalar(@words));
+  
+  # Count figures: <figure> elements with child <image typeimage="figure">
+  my @figure_nodes = $doc->findnodes('//figure[descendant::image[@typeimage=\'figure\']]');
+  $article_info_node->appendTextChild('nbfig', scalar(@figure_nodes));
+  
+  # Count tables: <tableau> elements
+  my @table_nodes = $doc->findnodes('//tableau');
+  $article_info_node->appendTextChild('nbtabl', scalar(@table_nodes));
+  
+  # Count equations: <figure> elements with child <image typeimage='equation'>
+  my @equation_nodes = $doc->findnodes('//figure[descendant::image[@typeimage=\'equation\']]');
+  $article_info_node->appendTextChild('nbeq', scalar(@equation_nodes));
+  
+  # All media objects: <objetmedia> elements
+  my @media_object_nodes = $doc->findnodes('//objetmedia');
+  $article_info_node->appendTextChild('nbom', scalar(@media_object_nodes));
+
+  # All images: <image> elements
+  my @image_nodes = $doc->findnodes('//image');
+  $article_info_node->appendTextChild('nbimage', scalar(@image_nodes));
+  
+  # Audio files: <audio> elements
+  my @audio_nodes = $doc->findnodes('//audio');
+  $article_info_node->appendTextChild('nbaudio', scalar(@audio_nodes));
+  
+  # video files: <video> elements
+  my @video_nodes = $doc->findnodes('//video');
+  $article_info_node->appendTextChild('nbvideo', scalar(@video_nodes));
+  
+  # Biblio references: <refbiblio> elements
+  my @ref_nodes = $doc->findnodes('//refbiblio');
+  $article_info_node->appendTextChild('nbrefbiblio', scalar(@ref_nodes));
+
+  # Notes: <note> elements
+  my @note_nodes = $doc->findnodes('//note');
+  $article_info_node->appendTextChild('nbnote', scalar(@note_nodes));
+  
+  # Replace existing <infoarticle> with our more better one
+  $doc->findnodes('/article/admin/infoarticle')->get_node(1)->replaceNode($article_info_node);
+  
+  # write modified XML back to $content
+  $content = $doc->toString();
+}
 
 ###############################################################################
 # Write modified XML back to source file
