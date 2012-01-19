@@ -384,7 +384,7 @@ my $image_file_path;
 ###############################################################################
 # At this point, the XML should be valid....
 ###############################################################################
-# Begin block of XML manipulation code... maybe?
+# Begin block of XML manipulation code... 
 {
   my $parser = XML::LibXML->new();
   my $doc;
@@ -395,7 +395,8 @@ my $image_file_path;
   };
   
   # Die if the XML's not ok
-  croak "[error] Invalid XML. Fix XML and re-run script: $@" if $@;
+  # Look! a goto! 
+  carp "[error] Invalid XML. Fix XML and re-run script: $@" and goto END if $@;
 
   # Begin a block in which we count things.
   {
@@ -645,11 +646,11 @@ my $image_file_path;
 ###############################################################################
 # Write modified XML back to source file
 ###############################################################################
-
-# This strikes me as risky.
-croak "$NOT_WRITEABLE: $xml_file" if ! open FILE, ">$xml_file";
-print FILE $content;
-close FILE;
+END:
+  # This strikes me as risky.
+  croak "$NOT_WRITEABLE: $xml_file" if ! open FILE, ">$xml_file";
+  print FILE $content;
+  close FILE;
 
 exit 0;
 
