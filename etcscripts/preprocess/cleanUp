@@ -35,6 +35,9 @@
 use strict;
 use warnings;
 
+# Set default input/output encoding
+# use open ':encoding(utf8)'; 
+
 use Carp;
 use File::Basename;
 use File::Spec;
@@ -161,7 +164,7 @@ my $image_file_path;
   
     # Match element at current section level. The markup may contain hand-coded
     # id attributes and/or <no> elements: replace & renumber these.
-    my $match = qr/<section$sl[^>]*> (?:\s* <no>\d*<\/no>)? /x;
+    my $match = qr/<section$sl[^>]*> (?:\s* <no>\d*<\/no>)? /xs;
 
     # initialize section number $sn for current section level 
     my $sn = 1;
@@ -194,7 +197,7 @@ my $image_file_path;
 #
 {
   my $id = 1;
-  $content =~ s{ <renvoi[^>]*> }{ '<renvoi id="re1no' . $id . '" idref="no' . $id++ . '" typeref="note">' }xmsige;
+  $content =~ s{ <renvoi[^>]*> }{ '<renvoi id="re'. $id .'no'. $id .'" idref="no'. $id++ .'" typeref="note">' }xmsige;
 }
 
 #
@@ -640,7 +643,7 @@ my $image_file_path;
   } # end XLink markup in <grlien>
   
   # write modified XML back to $content
-  $content = $doc->toString();
+  $content = $doc->toString(0);
 }
 
 ###############################################################################
