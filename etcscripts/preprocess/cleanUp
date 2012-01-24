@@ -629,15 +629,23 @@ my $image_file_path;
       $grlien_node->appendChild($return_link);
     }
 
-    # Does <grlien> exist in $doc?
-    if ($doc->findnodes('/article/grlien')) {
-      # replace it with updated version
-      $doc->findnodes('/article/grlien')->get_node(1)->replaceNode($grlien_node);
+    # Does <grlien/> have any child nodes? If so, insert in $doc. Otherwise,
+    # search $doc for existing <grlien/> and remove if found.
+    if ($grlien_node->hasChildNodes()) {
+        if ($doc->findnodes('/article/grlien')) {
+          # replace existing <grlien/>
+          $doc->findnodes('/article/grlien')->get_node(1)->replaceNode($grlien_node);
+        }
+        else {
+          # insert new <grlien/>
+          $doc->documentElement()->insertBefore($grlien_node, $doc->findnodes('/article/liminaire')->get_node(1));
+        }
     }
     else {
-      # insert new <grlien>
-      # insertBefore, insertAfter must be invoked from parent of ref node
-      $doc->documentElement()->insertBefore($grlien_node, $doc->findnodes('/article/liminaire')->get_node(1));
+      # No elements in <grlien/>. If found in $doc, remove it.
+      if ($doc->findnodes('/article/grlien')) {
+        $doc->getDocumentElement()->removeChild($doc->findnodes('/article/grlien')->get_node(1));
+      }
     }
     
   } # end XLink markup in <grlien>
