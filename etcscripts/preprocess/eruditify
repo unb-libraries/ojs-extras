@@ -67,14 +67,14 @@ Readonly my @REPLACEABLES => (
   sub { $_[0] =~ s{ </?code>   }{$SPACE}g; },   # <small> or </small>
   sub { $_[0] =~ s{ </?small>  }{$SPACE}g; },   # <code> or </code>
   
+  # Discard <h1>, <h2>, ... <h6> headings
+  sub { $_[0] =~ s{ < /? h ([123456]) > }{$SPACE}g; },
+  
   # Translate style-based markup to Érudit equivalents
   sub { $_[0] =~ s{ <i>   (.*?) </i>   }{<marquage typemarq="italique">$1</marquage>}g; },  # and <em>?
   sub { $_[0] =~ s{ <b>   (.*?) </b>   }{<marquage typemarq="gras">$1</marquage>}g; },      # and <strong>?
   sub { $_[0] =~ s{ <sup> (.*?) </sup> }{<exposant>$1</exposant>}g; },
   sub { $_[0] =~ s{ <sub> (.*?) </sub> }{<indice>$1</indice>}g; },
-
-  # Replace <h1>, <h2>, ... </h6> tags with <alinea>
-  sub { $_[0] =~ s{ <h ([123456]) > (.*?) </ h\1 > }{<alinea>$2</alinea>}g; },
 );
 
 # Begin file processing block
