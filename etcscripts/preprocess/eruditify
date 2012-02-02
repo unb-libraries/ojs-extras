@@ -18,7 +18,7 @@ use IO::Interactive qw( interactive );
 use IO::Prompt;
 use Perl6::Slurp;
 use Readonly;
-use Regexp::DefaultFlags qw( xms );   # Regexes in this namespace /xms-modified
+use Regexp::DefaultFlags qw( xmsi ); # Regexes in this namespace /xmsi-modified
 
 ###############################################################################
 # Process command line 
@@ -52,7 +52,7 @@ Readonly my $SPACE    => ' ';
 Readonly my $XML_EXT  => '.xml';
 
 # Regular expressions
-Readonly my $IS_HTML  => qr{ \.html \s* \z }i;
+Readonly my $IS_HTML  => qr{ \.html \s* \z };
 
 # @todo include these? check w/ Mike N.  If these are octal representations of
 # ASCII characters, the replacements are wrong!!!
@@ -117,7 +117,7 @@ Readonly my @REPLACEABLES => (
       # revert $\ to undef when prompting for input
       local $OUTPUT_RECORD_SEPARATOR = undef;
       my $response = prompt "File $xml_file exists. Overwrite? [y/n] ",
-                            -require=>{ 'Must be y or n: ' => qr/[yn]/i };
+                            -require=>{ 'Must be y or n: ' => qr/[yn]/ };
                             
       $write_to_target = ($response =~ /y/i);
     }
