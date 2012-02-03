@@ -14,6 +14,7 @@ use English;
 use Fatal qw( open close );     # Force builtins to throw exceptions on failure
 use File::Basename;
 use Getopt::Long;
+use HTML::Entities;
 use IO::Interactive qw( interactive );
 use IO::Prompt;
 use Perl6::Slurp;
@@ -54,18 +55,12 @@ Readonly my $XML_EXT  => '.xml';
 # Regular expressions
 Readonly my $IS_HTML  => qr{ \.html \s* \z };
 
-# @todo include these? check w/ Mike N.  If these are octal representations of
-# ASCII characters, the replacements are wrong!!!
-#  '\\222' => q{"},
-#  '\\223' => q{'},
-#  '\\224' => q{'},
-
 Readonly my @REPLACEABLES => (
   # Discard style-based markup that conveys nothing useful: 
   # replace with $SPACE to preserve word breaks
-  sub { $_[0] =~ s{ <br \s* /> }{$SPACE}g; },   # <br/> or <br />
-  sub { $_[0] =~ s{ </?code>   }{$SPACE}g; },   # <small> or </small>
-  sub { $_[0] =~ s{ </?small>  }{$SPACE}g; },   # <code> or </code>
+  sub { $_[0] =~ s{ <br /? >  }{$SPACE}g; },   # <br/> or <br>
+  sub { $_[0] =~ s{ </?code>  }{$SPACE}g; },   # <small> or </small>
+  sub { $_[0] =~ s{ </?small> }{$SPACE}g; },   # <code> or </code>
   
   # Discard <h1>, <h2>, ... <h6> headings
   sub { $_[0] =~ s{ < /? h ([123456]) > }{$SPACE}g; },
@@ -75,6 +70,14 @@ Readonly my @REPLACEABLES => (
   sub { $_[0] =~ s{ <b>   (.*?) </b>   }{<marquage typemarq="gras">$1</marquage>}g; },      # and <strong>?
   sub { $_[0] =~ s{ <sup> (.*?) </sup> }{<exposant>$1</exposant>}g; },
   sub { $_[0] =~ s{ <sub> (.*?) </sub> }{<indice>$1</indice>}g; },
+  
+  # Hack to work around Gemini's inconsistent character encoding: in converting
+  # PDF to HTML, some non-ASCII characters entity-encoded, most are not.
+  # Double-encode &, <, and > so the call to decode_entities() results in 
+  # uniformly decoded characters with properly-escaped special characters.
+  sub { $_[0] =~ s{ &amp; }{&amp;amp;}g; },
+  sub { $_[0] =~ s{ &gt;  }{&amp;gt;}g; },
+  sub { $_[0] =~ s{ &lt;  }{&amp;lt;}g; },  
 );
 
 # Begin file processing block
@@ -140,16 +143,19 @@ Readonly my @REPLACEABLES => (
     # Power-slurp the (X)HTML. Let it throw an exception on failure: we've
     # already checked the obvious (-e, -r $file)
     my $xhtml = slurp $file;
-    
+        
     # Replace the replaceables
     foreach my $sub (@REPLACEABLES) {
       &{$sub}($xhtml);
     }
+    
+    # Decode in-place: replace entities with Unicode characters.
+    decode_entities($xhtml);
 
     print {interactive} "Writing to $xml_file" if $verbose;
 
     # Write Erudit "XML" to target file. Let Fatal.pm take care of exceptions.
-    open my $XML_FILE, '>', $xml_file;
+    open my $XML_FILE, ">:encoding(UTF-8)", $xml_file;
     print {$XML_FILE} $xhtml;
     close $XML_FILE;
     
