@@ -11,7 +11,7 @@ use warnings;
 
 use Carp;
 use English;
-use Fatal qw( open close );     # Force builtins to throw exceptions on failure
+use Fatal qw( open close unlink ); # Force builtins to throw exceptions on failure
 use File::Basename;
 use Getopt::Long;
 use HTML::Entities;
@@ -28,22 +28,24 @@ use Regexp::DefaultFlags qw( xmsi ); # Regexes in this namespace /xmsi-modified
 # Variables set in response to command-line arguments, with defaults
 my $infile    = '-';
 my $outfile   = '-';
+my $delete    = 0;
 my $overwrite = 0;
 my $verbose   = 0;
 
 # Process command line...
 my $options_ok = GetOptions (
   # Application-specific options
+  'delete'    => \$delete,        # --delete flag is boolean
   'overwrite' => \$overwrite,     # --overwrite flag is boolean
   'verbose'   => \$verbose,       # --verbose flag is boolean
   
   # Standard meta-options
-  'usage'   => sub { print show_usage() },
-  'help'    => sub { print show_help() },
+  'usage'   => sub { print show_usage() and exit; },
+  'help'    => sub { print show_help() and exit; },
 );
 
 # Fail if unknown arguments encountered
-print show_usage() if ! $options_ok;
+croak show_usage() if ! $options_ok;
 
 ###############################################################################
 # Process the files
@@ -89,6 +91,11 @@ Readonly my @REPLACEABLES => (
   my @files;
   while (my $file = shift @ARGV) {
     push @files, $file;
+  }
+  
+  if (! @files) {
+    carp "No XML files to process";
+    croak show_usage();
   }
   
   FILE: foreach my $file (@files) {
@@ -159,6 +166,12 @@ Readonly my @REPLACEABLES => (
     print {$XML_FILE} $xhtml;
     close $XML_FILE;
     
+    # If we're here, we've written the XML. Delete the source HTML, if asked
+    if ($delete) {
+      unlink $file;
+      print {interactive} "Deleted HTML source file $file" if $verbose;
+    }
+    
   } # end FILE
 
   print {interactive} "Done." if $verbose;
@@ -172,7 +185,7 @@ exit 0;
 ###############################################################################
 sub show_usage {
   my $usage = <<'END_USAGE';
-Usage: eruditify [-o] [-v] article.html [article2.html ...]
+Usage: eruditify [-d] [-o] [-v] article.html [article2.html ...]
 END_USAGE
 # end heredoc
 
@@ -191,6 +204,7 @@ eruditify - Convert HTML .html files to XML .xml files.  Replace HTML style
             
 ${usage}
 Options:
+  -d, --delete    Delete HTML source files after processing.
   -o, --overwrite If target XML file exists, overwrite without prompting.
   -v, --verbose   Display details of script progress.
   -u, --usage     Print the usage line of this summary.
