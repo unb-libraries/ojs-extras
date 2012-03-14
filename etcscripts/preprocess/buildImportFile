@@ -64,7 +64,7 @@ class OJSIssue extends OJSImportable {
   // A list of OJSIssueSection objects, indexed by section ID
   private $section_list = array();
   
-  function __contstruct() {
+  function __construct() {
     // does nothing
   }
   
@@ -182,9 +182,6 @@ class OJSIssue extends OJSImportable {
       $document->importNode($this->get_xml_document(), TRUE)
     );
     
-    // Final sanity check:
-    $document->validate();
-
     // Hack to preserve CDATA sections. 
     $document_xml = preg_replace("/&lt;!\[CDATA\[&lt;(\/?([^&]+?))&gt;\]\]&gt;/s", "<![CDATA[<$1>]]>", $document->saveXML());
 
@@ -295,7 +292,7 @@ class OJSArticle extends OJSImportable {
   private $pdf_galley = '';
   private $html_galley = '';
   
-  function __contstruct() {
+  function __construct() {
     // does nothing
   }
 
@@ -572,17 +569,30 @@ class EruditUnmarshaller {
 
   /**
    * Occasionally we want to retain, in the OJS import file, text formatting
-   * information captured in Erudit <marquage> tags. Translate some Erudit 
-   * <marquage> tags to HTML markup, wrapped in CDATA sections.
+   * information captured in Erudit tags. Translate some Erudit markup to HTML
+   * wrapped in CDATA sections.
    *
-   * @see function _preserve_markup
-   * @see function _translate_marquage
+   * @todo finish this
    */
-  private $typemarq_map = array(
-    'gras'     => 'strong',
-    'italique' => 'em'
-  );  
   
+  /**
+   * Ugly hack to handle Erudit DTD & schema XML: use namespaces to when 
+   * source XML is schema-flavoured, otherwise not.
+   */
+  private $schema = FALSE;
+  private $ns_uri = '';
+  private $ns     = '';
+  private $nsp    = ''; // namespace prefix in XPath statements
+  
+  function __construct($schema = FALSE) {
+    if ($schema) {
+      $this->schema = $schema;
+      $this->ns_uri = 'http://www.erudit.org/xsd/article';
+      $this->ns     = 'erudit';
+      $this->nsp    = $this->ns . ':';
+    }
+  }
+
   public function unmarshall_issue($xml_file) {
     // Build DOMXPath object for XPath queries from Erudit XML
     $xpath_dom = $this->_init_xpath_dom($xml_file);
@@ -642,7 +652,7 @@ class EruditUnmarshaller {
     $author_list = array();
     
     // Get a list of author elements
-    $node_list = $xpath_dom->query('/article/liminaire/grauteur/auteur');
+    $node_list = $xpath_dom->query("/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}grauteur/{$this->nsp}auteur");
 
     foreach ($node_list as $node) {
       $author = new OJSAuthor();
@@ -701,12 +711,12 @@ class EruditUnmarshaller {
   
   /** Gets article ID */
   private function _get_article_id($xpath_dom) {
-    return $this->_eval_query_as_string($xpath_dom, '/article/@idproprio');
+    return $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/@idproprio");
   }
   
   /** Gets article type */
   private function _get_type($xpath_dom) {
-    return $this->_eval_query_as_string($xpath_dom, '/article/@typeart');
+    return $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/@typeart");
   }
   
   /** An article belongs to a section */
@@ -726,7 +736,7 @@ class EruditUnmarshaller {
   /** A section has a title */
   private function _get_section_title($xpath_dom) {
     // Element may appear once or not at all
-    return $this->_eval_query_as_string($xpath_dom, '/article/liminaire/grtitre/surtitre');
+    return $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}grtitre/{$this->nsp}surtitre");
   }
   
   /** Builds article title */
@@ -734,7 +744,7 @@ class EruditUnmarshaller {
     $title = '';
 
     // Query for title
-    $title_nodelist = $xpath_dom->query('/article/liminaire/grtitre/titre');
+    $title_nodelist = $xpath_dom->query("/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}grtitre/{$this->nsp}titre");
     
     // Erudit DTD permits a single title in the title group    
     if ($title_nodelist->length) {
@@ -744,7 +754,7 @@ class EruditUnmarshaller {
       $title = $this->_preserve_markup($xpath_dom, $title_nodelist->item(0));
       
       // Title may be followed by (at most) one subtitle element
-      $subtitle_nodelist = $xpath_dom->query('/article/liminaire/grtitre/sstitre');
+      $subtitle_nodelist = $xpath_dom->query("/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}grtitre/{$this->nsp}sstitre");
       
       if ($subtitle_nodelist->length) {
         // add subtitle, preserving any embedded markup
@@ -753,7 +763,7 @@ class EruditUnmarshaller {
     }
     
     // If no title found in <titre>, check <trefbiblio>
-    $trefbiblio_nodelist = $xpath_dom->query('/article/liminaire/grtitre/trefbiblio');
+    $trefbiblio_nodelist = $xpath_dom->query("/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}grtitre/{$this->nsp}trefbiblio");
     
     // DTD allows 0 or more <trefbiblio> elements
     $biblio_title_list = array();
@@ -772,14 +782,14 @@ class EruditUnmarshaller {
   /** Builds abstract */
   private function _get_abstract($xpath_dom) {
     // We expect an abstract in English
-    $abstract = $this->_eval_query_as_string($xpath_dom, '/article/liminaire/resume[@lang="en"]/alinea');
+    $abstract = $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}resume[@lang=\"en\"]/{$this->nsp}alinea");
     
     // There may be a French abstract
-    $abstract_fr = $this->_eval_query_as_string($xpath_dom, '/article/liminaire/resume[@lang="fr"]/alinea');
+    $abstract_fr = $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}resume[@lang=\"fr\"]/{$this->nsp}alinea");
     
     if (! empty($abstract_fr)) {
       $abstract .= PHP_EOL . PHP_EOL;
-      $abstract .= $this->_eval_query_as_string($xpath_dom, '/article/liminaire/resume[@lang="fr"]/titre');
+      $abstract .= $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}resume[@lang=\"fr\"]/{$this->nsp}titre");
       $abstract .= PHP_EOL . PHP_EOL;
       $abstract .= $abstract_fr;
     }
@@ -790,13 +800,13 @@ class EruditUnmarshaller {
   /** Gets date published: YYYY-MM-DD */
   private function _get_date_published($xpath_dom) {
     // Element is required and may appear once only
-    return $this->_eval_query_as_string($xpath_dom, '/article/admin/numero/pubnum/date');
+    return $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}admin/{$this->nsp}numero/{$this->nsp}pubnum/{$this->nsp}date");
   }
   
   /** Article start page */
   private function _get_start_page($xpath_dom) {
     // Element is optional
-    $start_page = $this->_eval_query_as_string($xpath_dom, '/article/admin/infoarticle/pagination/ppage');    
+    $start_page = $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}admin/{$this->nsp}infoarticle/{$this->nsp}pagination/{$this->nsp}ppage");    
     
     if (intval($start_page)) {
       $start_page = intval($start_page);
@@ -808,7 +818,7 @@ class EruditUnmarshaller {
   /** Article end page */
   private function _get_end_page($xpath_dom) {
     // Element is optional
-    $end_page = $this->_eval_query_as_string($xpath_dom, '/article/admin/infoarticle/pagination/dpage');
+    $end_page = $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}admin/{$this->nsp}infoarticle/{$this->nsp}pagination/{$this->nsp}dpage");
     
     if (intval($end_page)) {
       $end_page = intval($end_page);
@@ -820,50 +830,50 @@ class EruditUnmarshaller {
   /** Gets year published: YYYY */
   private function _get_year($xpath_dom) {
     // Element is required and may appear once only
-    return $this->_eval_query_as_string($xpath_dom, '/article/admin/numero/pub/annee');
+    return $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}admin/{$this->nsp}numero/{$this->nsp}pub/{$this->nsp}annee");
   }
   
   /** Gets volume number of issue in which article is published */
   private function _get_volume($xpath_dom) {
     // Element may appear once or not at all 
-    return $this->_eval_query_as_string($xpath_dom, '/article/admin/numero/volume');
+    return $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}admin/{$this->nsp}numero/{$this->nsp}volume");
   }
 
   /** Gets number of issue in which article is published */
   private function _get_issue_number($xpath_dom) {  
     // Element may appear zero or more times; concatenate repeated values
-    return $this->_eval_query_as_string($xpath_dom, '/article/admin/numero/nonumero', NULL, '-');
+    return $this->_eval_query_as_string($xpath_dom, "/{$this->nsp}article/{$this->nsp}admin/{$this->nsp}numero/{$this->nsp}nonumero", NULL, '-');
   }
     
   /** Author first name. Requires context node for disambiguation. */
   private function _get_author_firstname($xpath_dom, $author_node) {
     // Element is required and may appear only once per author
-    return $this->_eval_query_as_string($xpath_dom, 'nompers/prenom', $author_node);
+    return $this->_eval_query_as_string($xpath_dom, "{$this->nsp}nompers/{$this->nsp}prenom", $author_node);
   }    
     
   /** Author middle name. Requires context node for disambiguation. */
   private function _get_author_middlename($xpath_dom, $author_node) {
     // Element may appear once per author or not at all
-    return $this->_eval_query_as_string($xpath_dom, 'nompers/autreprenom', $author_node);
+    return $this->_eval_query_as_string($xpath_dom, "{$this->nsp}nompers/{$this->nsp}autreprenom", $author_node);
   }
   
   /** Author surname. Requires context node for disambiguation. */
   private function _get_author_lastname($xpath_dom, $author_node) {
     // Element is required and may appear only once per author
-    return $this->_eval_query_as_string($xpath_dom, 'nompers/nomfamille', $author_node);
+    return $this->_eval_query_as_string($xpath_dom, "{$this->nsp}nompers/{$this->nsp}nomfamille", $author_node);
   }
   
   /** Author affiliation. Requires context node for disambiguation. */
   private function _get_author_affiliation($xpath_dom, $author_node) {
     // May appear once per author or not at all. Affiliation has 1 or more
     // child <alinea> elements.  Concatenate these with whitespace.
-    return $this->_eval_query_as_string($xpath_dom, 'affiliation/alinea', $author_node, ' ');
+    return $this->_eval_query_as_string($xpath_dom, "{$this->nsp}affiliation/{$this->nsp}alinea", $author_node, ' ');
   }
   
   /** Author e-mail. Requires context node for disambiguation. */
   private function _get_author_email($xpath_dom, $author_node) {
     // May appear once per author or not at all
-    return $this->_eval_query_as_string($xpath_dom, 'courriel', $author_node);
+    return $this->_eval_query_as_string($xpath_dom, "{$this->nsp}courriel", $author_node);
   }
   
   /**
@@ -896,46 +906,28 @@ class EruditUnmarshaller {
   
   /**
    * Preserves formatting in <marquage> tags as CDATA-ized HTML
-   * @todo describe me...
+   @fixme this will not work, for any number of reasons: <indice>Index</indice> about an index.
    */
   private function _preserve_markup($xpath_dom, $node) {
     $node_text = $node->nodeValue;
-
-    // First, determine if the node contains any <marquage> elements
-    $nodelist = $xpath_dom->query('.//marquage', $node);
     
-    if (! $nodelist->length) {
-      // No markup: return node content
-      return $node_text;
-    }
-    
-    // Otherwise, replace sections of node content with CDATA-wrapped 'markup' 
-    foreach ($nodelist as $markup_node) {
-      $markup_text = $markup_node->nodeValue;
-      $html_tag = $this->_translate_marquage($markup_node->getAttribute('typemarq'));
+    foreach ($this->erudit_map as $erudit_markup_xpath => $html_tag) {
+      // See if $node contains translatable Erudit markup
+      $node_list = $xpath_dom->query('.//'. $this->nsp . $erudit_markup_xpath, $node);
       
-      if (! $html_tag) {
-        // Some times of markup we don't care about
+      if (! $node_list->length) {
+        // No markup: skip to next Erudit tag
         continue;
       }
-      $node_text = str_replace($markup_text, "<![CDATA[<$html_tag>]]>$markup_text<![CDATA[</$html_tag>]]>", $node_text);
+      
+      // Otherwise, replace sections of node content with CDATA-wrapped 'markup' 
+      foreach ($node_list as $erudit_markup_node) {
+        $erudit_markup_text = $erudit_markup_node->nodeValue;
+        $node_text = str_replace($erudit_markup_text, "<![CDATA[<$html_tag>]]>$erudit_markup_text<![CDATA[</$html_tag>]]>", $node_text);
+      }
     }
     
     return $node_text;
-  }
-  
-  /**
-   * Map marquage attribute to an HTML tag
-   * @todo describe me
-   */
-  private function _translate_marquage($typemarq_attr) {
-    $html_tag = '';
-    
-    if (array_key_exists($typemarq_attr, $this->typemarq_map)) {
-      $html_tag = $this->typemarq_map[$typemarq_attr];
-    }
-    
-    return $html_tag;
   }
   
   /**
@@ -946,11 +938,12 @@ class EruditUnmarshaller {
     $erudit_doc = new DOMDocument();
     $erudit_doc->load($xml_file);
     
-    // The following will throw an exception if the XML is not valid
-    $erudit_doc->validate();
-    
     // Create an XPath object to locate values to populate OJSArticle object
     $xpath_dom = new DOMXPath($erudit_doc);
+    
+    if ($this->schema) {
+      $xpath_dom->registerNamespace($this->ns, $this->ns_uri);
+    }
     
     return $xpath_dom;
   }
@@ -1029,9 +1022,17 @@ if ($xml_files === FALSE or empty($xml_files)) {
 /* ========================================================================= */
 //  Build issue, section, article objects from source XML
 /* ========================================================================= */
+// Rough test to determine if we'ren processing DTD or schema-based XML:
+// we assume all the XML files for an issue are the same flavour. 
+$schema = FALSE;
+
+$simpleXML = new SimpleXMLElement( file_get_contents($xml_files[0]) );
+if ($simpleXML->admin->schema) {
+  $schema = TRUE;
+}
 
 // Decompose Erudit XML files into OJS-importable objects
-$unmarshaller = new EruditUnmarshaller();
+$unmarshaller = new EruditUnmarshaller($schema);
 
 // Each XML file encodes an article and includes issue-level metadata for the
 // issue in which the article is published.  Since the XML files in the given
