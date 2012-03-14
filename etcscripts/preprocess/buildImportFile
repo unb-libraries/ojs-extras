@@ -274,9 +274,11 @@ class OJSArticle extends OJSImportable {
   private $type = '';
   private $title = '';
   private $date_published = '';
-  private $abstract = '';
   private $start_page = '';
   private $end_page = '';
+  
+  // An article may have abstracts in different langauges
+  private $abstract = array();
   
   // An article is published in a section
   /** 
@@ -320,12 +322,15 @@ class OJSArticle extends OJSImportable {
     $this->title = $title;
   }
   
-  /** abstract */
-  public function get_abstract() {
-    return $this->abstract;
+  /** 
+  * An array of one or more abstracts, indexed by language code, e.g.,
+  *   array('en_US' => 'This article...')
+  */
+  public function get_abstracts() {
+    return $this->abstracts;
   }
-  public function set_abstract($abstract) {
-    $this->abstract = $abstract;
+  public function set_abstracts($abstracts) {
+    $this->abstracts = $abstracts;
   }
   
   /** start page */
@@ -406,9 +411,14 @@ class OJSArticle extends OJSImportable {
     // The article
     $article_node = $document->appendChild($document->createElement('article'));
 
-    // Article title & abstract
+    // Article title
     $article_node->appendChild( $this->create_text_node($article_node, 'title', $this->get_title()) );
-    $article_node->appendChild( $this->create_text_node($article_node, 'abstract', $this->get_abstract()) );    
+    
+    // One or more abstracts
+    foreach ($this->get_abstracts() as $lang => $text) {
+      $abstract_node = $article_node->appendChild($document->createElement('abstract', $text));
+      $abstract_node->setAttribute('locale', $lang);
+    }    
     
     // An article has zero or more authors, but OJS requires an author-type
     // construct: submit an empty author
@@ -583,7 +593,6 @@ class EruditUnmarshaller {
   private $nsp    = ''; // namespace prefix in XPath statements
   private $nsdec  = ''; // namespace declaration in markup preservation XSL
 
-
    /**
     * Occasionally we want to retain, in the OJS import file, text formatting
     * information captured in Erudit tags. Provide XPath expressions to find
@@ -596,6 +605,14 @@ class EruditUnmarshaller {
     "marquage[@typemarq='gras']" => 'strong',
     "marquage[@typemarq='italique']" => 'em',
   );   
+  
+  /**
+   * Erudit & OJS use different language codes
+   */
+  private $erudit_langcodes = array(
+    'en' => 'en_US',
+    'fr' => 'fr_CA',
+  );
   
   function __construct($xml) {
     // Create a temporary DOM from source XML
@@ -656,7 +673,7 @@ class EruditUnmarshaller {
     $ojs_article->set_article_id($this->_get_article_id());
     $ojs_article->set_type($this->_get_type());
     $ojs_article->set_title($this->_get_article_title());
-    $ojs_article->set_abstract($this->_get_abstract());
+    $ojs_article->set_abstracts($this->_get_abstracts());
     $ojs_article->set_date_published($this->_get_date_published());
     $ojs_article->set_start_page($this->_get_start_page());
     $ojs_article->set_end_page($this->_get_end_page());    
@@ -806,25 +823,21 @@ class EruditUnmarshaller {
   }
   
   /**
-   * Builds abstract
-   *
-   @fixme use OJS locales for abstracts in multiple languages
+   * Build array of abstracts keyed by language code
    */
-  private function _get_abstract() {
-    // We expect an abstract in English
-    $abstract = $this->_eval_query_as_string("/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}resume[@lang=\"en\"]/{$this->nsp}alinea");
+  private function _get_abstracts() {
+    $abstracts = array();
+    $abstract_nodes = $this->xpath_dom->query("/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}resume");
     
-    // There may be a French abstract
-    $abstract_fr = $this->_eval_query_as_string("/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}resume[@lang=\"fr\"]/{$this->nsp}alinea");
-    
-    if (! empty($abstract_fr)) {
-      $abstract .= PHP_EOL . PHP_EOL;
-      $abstract .= $this->_eval_query_as_string("/{$this->nsp}article/{$this->nsp}liminaire/{$this->nsp}resume[@lang=\"fr\"]/{$this->nsp}titre");
-      $abstract .= PHP_EOL . PHP_EOL;
-      $abstract .= $abstract_fr;
+    foreach ($abstract_nodes as $node) {
+      $langcode = $this->_eval_query_as_string('@lang', $node);
+      $text = $this->_eval_query_as_string('alinea', $node);
+
+      // Erudit & OJS use different language codes
+      $abstracts[$this->erudit_langcodes[$langcode]] = $text;
     }
-    
-    return $abstract;
+
+    return $abstracts;
   }
   
   /** Gets date published: YYYY-MM-DD */
@@ -1083,9 +1096,6 @@ foreach($xml_files as $xml_file) {
     continue;
   }
   
-  print_r($ojs_article);
-  exit();
-
   // Look for the article's PDF galley file
   $pdf_galley_file  = $issue_dir .'/'. PDF_DIR .'/'.  basename($xml_file, '.' . XML_FILE_EXT) .'.'. PDF_FILE_EXT;
 
@@ -1107,8 +1117,8 @@ foreach($xml_files as $xml_file) {
   }
   
   // Update article & page lists
-//  $article_list[$ojs_article->get_article_id()] = $ojs_article;
-//  $article_page_index[$ojs_article->get_article_id()] = $ojs_article->get_start_page();
+  $article_list[$ojs_article->get_article_id()] = $ojs_article;
+  $article_page_index[$ojs_article->get_article_id()] = $ojs_article->get_start_page();
 
 } // end foreach
 
