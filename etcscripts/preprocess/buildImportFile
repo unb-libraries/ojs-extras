@@ -1079,16 +1079,16 @@ foreach($xml_files as $xml_file) {
   // Create the issue, if not already.
   if (! $ojs_issue) {
     try {
-      $ojs_issue = $unmarshaller->unmarshall_issue($xml_file);
+      $ojs_issue = $unmarshaller->unmarshall_issue();
     }
     catch (ErrorException $e) {
-      exit( basename($xml_files[0]) . ': '. $e->getMessage() . PHP_EOL);
+      exit( basename($xml_file) . ': '. $e->getMessage() . PHP_EOL);
     }
   }
   
   // Create the article
   try {
-    $ojs_article = $unmarshaller->unmarshall_article($xml_file);
+    $ojs_article = $unmarshaller->unmarshall_article();
   }
   catch(ErrorException $e) {
     echo basename($xml_file), ': ', $e->getMessage(), PHP_EOL;
