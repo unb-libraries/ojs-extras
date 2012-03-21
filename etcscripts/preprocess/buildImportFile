@@ -960,6 +960,7 @@ class EruditUnmarshaller {
     $xsl = <<<EOD_XSL_HEADER
 <?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet {$this->nsdec} xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+  <xsl:output method="xml" encoding="UTF-8"/>
 
 EOD_XSL_HEADER;
 
