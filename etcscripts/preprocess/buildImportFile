@@ -416,8 +416,9 @@ class OJSArticle extends OJSImportable {
     
     // One or more abstracts
     foreach ($this->get_abstracts() as $lang => $text) {
-      $abstract_node = $article_node->appendChild($document->createElement('abstract', $text));
+      $abstract_node = $document->createElement('abstract', $text);
       $abstract_node->setAttribute('locale', $lang);
+      $article_node->appendChild($abstract_node);      
     }    
     
     // An article has zero or more authors, but OJS requires an author-type
@@ -764,13 +765,21 @@ class EruditUnmarshaller {
   /** An article belongs to a section */
   private function _get_section_id() {
     $section_id = '';
-        
-    // Extract section ID from article ID
-    $article_id = $this->_get_article_id();
+
+    // In DTD XML, we used to extract a substring of article ID to get a unique
+    // section ID. This is not possible with schema XML as Tournesol uses a 
+    // a different convention for generating article IDs. 
     
-    if (preg_match("/\d+([A-Za-z]+)\d+\s*$/", $article_id, $matches)) {
-      $section_id = strtoupper($matches[1]);
-    }
+    // Instead, base section ID on section title.  Remove whitespace and
+    // punctuation and encode down to Latin-1 characters.
+    $section_id = 
+      strtoupper(
+        preg_replace(
+          "/[[:punct:][:space:]]/",   // remove whitespace & punct.
+          "",
+          iconv('UTF-8', 'ASCII//IGNORE', $this->_get_section_title())  // after down-coding to ASCII
+        )
+      );
     
     return $section_id;
   }
@@ -831,7 +840,7 @@ class EruditUnmarshaller {
     
     foreach ($abstract_nodes as $node) {
       $langcode = $this->_eval_query_as_string('@lang', $node);
-      $text = $this->_eval_query_as_string('alinea', $node);
+      $text = $this->_eval_query_as_string("{$this->nsp}alinea", $node);
 
       // Erudit & OJS use different language codes
       $abstracts[$this->erudit_langcodes[$langcode]] = $text;
