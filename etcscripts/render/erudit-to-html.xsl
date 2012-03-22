@@ -1,6 +1,8 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns:xd="http://www.oxygenxml.com/ns/doc/xsl" 
-  xmlns:xlink="http://www.w3.org/1999/xlink" exclude-result-prefixes="xlink xd" version="2.0">
+  xmlns:xlink="http://www.w3.org/1999/xlink" 
+  xmlns="http://www.w3.org/1999/xhtml"
+  exclude-result-prefixes="xlink xd" version="2.0">
   
   <xd:doc scope="stylesheet">
     <xd:desc>
@@ -10,9 +12,7 @@
 
   <xsl:output 
     encoding="UTF-8"
-    method="xml"
-    media-type="text/html"
-    omit-xml-declaration="yes"
+    method="xhtml"
     doctype-public="-//W3C//DTD XHTML 1.0 Strict//EN"
     doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"/>
   
