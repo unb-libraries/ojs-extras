@@ -16,12 +16,12 @@
 
 	<!-- CRKN -->
 	<message key="plugins.generic.CRKN.displayName">CRKN Identification Plugin</message>
-	<message key="plugins.generic.CRKN.description"><![CDATA[Identifies whether or not this Journal is part of our CRKN bundle]]></message>
+	<message key="plugins.generic.CRKN.description"><![CDATA[Use this plugin to identify journals in the CRKN bundle]]></message>
 
 	<!-- CRKN Settings Management -->
 	<message key="plugins.generic.CRKN.manager.settings">Settings</message>
 	<message key="plugins.generic.CRKN.manager.CRKNSettings">CRKN Plugin Settings</message>
-	<message key="plugins.generic.CRKN.manager.settings.description"><![CDATA[<p>With this plugin enabled, this journal's content will appear in our EruditArticle OAI export. </p>]]>
+	<message key="plugins.generic.CRKN.manager.settings.description"><![CDATA[<p>If journal is included in the CRKN bundle, journal content will be made available for OAI harvesting. </p>]]>
 </message>
 	<message key="plugins.generic.CRKN.manager.settings.CRKNJournal">Is this part of the CRKN bundle?</message>
 </locale>

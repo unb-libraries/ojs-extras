@@ -1,22 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE locale SYSTEM "../../../../../locale/locale.dtd">
-
 <!--
   * locale.xml
   *
-  * Copyright (c) 2003-2008 John Willinsky
-  * Distributed under the GNU GPL v2. For full terms see the file docs/COPYING.
-  *
   * Localization strings for the fr_CA (Français (Canada)) locale.
-  *
-  * $Id: locale.xml 10 2008-10-17 17:14:01Z jwhitney $
   -->
- 
 <locale name="fr_CA" full_name="Français (Canada)">
-	<message key="plugins.block.extendedHelp.displayName">[Extended Help Block]</message>
-	<message key="plugins.block.extendedHelp.description">Ce plugiciel fournit des liens d'aide additionels dans l'encadré latéral.</message>
-	<message key="plugins.block.extendedHelp.contextSensitive">Aide sensible au contexte</message>
-	<message key="plugins.block.extendedHelp.quickReference">Guide de référence rapide</message>
-	<message key="plugins.block.extendedHelp.helpDocumentation">Documentation</message>
-	<message key="plugins.block.extendedHelp.supportForum">Forum</message>	
+  <message key="plugins.block.extendedHelp.displayName">[Extended Help Block]</message>
+  <message key="plugins.block.extendedHelp.description">Ce plugiciel fournit des liens d'aide additionels dans l'encadré latéral.</message>
+  <message key="plugins.block.extendedHelp.contextSensitive">Aide sensible au contexte</message>
+  <message key="plugins.block.extendedHelp.quickReference">Guide de référence rapide</message>
+  <message key="plugins.block.extendedHelp.helpDocumentation">Documentation</message>
+  <message key="plugins.block.extendedHelp.supportForum">Forum</message>  
 </locale>

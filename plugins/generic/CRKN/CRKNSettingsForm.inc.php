@@ -9,62 +9,61 @@
  * @class CRKNSettingsForm
  * @ingroup plugins_generic_CRKN
  *
- * @brief Form for journal managers to modify Statistics Aggregation plugin settings
+ * @brief Form for journal managers to add / remove journals from CRKN bundle
  */
 
 // $Id$
 
-
-import('form.Form');
+import('lib.pkp.classes.form.Form');
 
 class CRKNSettingsForm extends Form {
 
-	/** @var $journalId int */
-	var $journalId;
+  /** @var $journalId int */
+  var $journalId;
 
-	/** @var $plugin object */
-	var $plugin;
+  /** @var $plugin object */
+  var $plugin;
 
-	/**
-	 * Constructor
-	 * @param $plugin object
-	 * @param $journalId int
-	 */
-	function CRKNSettingsForm(&$plugin, $journalId) {
-		$this->journalId = $journalId;
-		$this->plugin =& $plugin;
+  /**
+   * Constructor
+   * @param $plugin object
+   * @param $journalId int
+   */
+  function CRKNSettingsForm(&$plugin, $journalId) {
+    $this->journalId = $journalId;
+    $this->plugin =& $plugin;
 
-		parent::Form($plugin->getTemplatePath() . 'settingsForm.tpl');
-	}
+    parent::Form($plugin->getTemplatePath() . 'settingsForm.tpl');
+  }
 
-	/**
-	 * Initialize form data.
-	 */
-	function initData() {
-		$journalId = $this->journalId;
-		$plugin =& $this->plugin;
+  /**
+   * Initialize form data.
+   */
+  function initData() {
+    $journalId = $this->journalId;
+    $plugin =& $this->plugin;
 
-		$this->_data = array(
-			'CRKNJournal' => $plugin->getSetting($journalId, 'CRKNJournal')
-		);
-	}
+    $this->_data = array(
+      'CRKNJournal' => $plugin->getSetting($journalId, 'CRKNJournal')
+    );
+  }
 
-	/**
-	 * Assign form data to user-submitted data.
-	 */
-	function readInputData() {
-		$this->readUserVars(array('CRKNJournal'));
-	}
+  /**
+   * Assign form data to user-submitted data.
+   */
+  function readInputData() {
+    $this->readUserVars(array('CRKNJournal'));
+  }
 
-	/**
-	 * Save settings.
-	 */
-	function execute() {
-		$plugin =& $this->plugin;
-		$journalId = $this->journalId;
+  /**
+   * Save settings.
+   */
+  function execute() {
+    $plugin =& $this->plugin;
+    $journalId = $this->journalId;
 
-		$plugin->updateSetting($journalId, 'CRKNJournal', trim($this->getData('CRKNJournal'), "\"\';"), 'string');
-	}
+    $plugin->updateSetting($journalId, 'CRKNJournal', trim($this->getData('CRKNJournal'), "\"\';"), 'string');
+  }
 }
 
 ?>
