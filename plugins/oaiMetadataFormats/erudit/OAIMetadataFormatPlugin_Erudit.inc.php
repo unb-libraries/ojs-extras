@@ -27,11 +27,11 @@ class OAIMetadataFormatPlugin_Erudit extends OAIMetadataFormatPlugin {
 	}
 
 	function getDisplayName() {
-		return Locale::translate('plugins.oaiMetadata.erudit.displayName');
+		return __('plugins.oaiMetadata.erudit.displayName');
 	}
 
 	function getDescription() {
-		return Locale::translate('plugins.oaiMetadata.erudit.description');
+		return __('plugins.oaiMetadata.erudit.description');
 	}
 
 	function getFormatClass() {
