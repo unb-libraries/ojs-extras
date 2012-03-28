@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file LLTNavigationPlugin.inc.php
  *
@@ -15,98 +14,47 @@
 import('lib.pkp.classes.plugins.GenericPlugin');
 
 class LLTNavigationPlugin extends GenericPlugin {
-	/**
-	 * Register the plugin, if enabled; note that this plugin
-	 * runs under both Journal and Site contexts.
-	 * @param $category string
-	 * @param $path string
-	 * @return boolean
-	 */
-	function register($category, $path) {
-		if (parent::register($category, $path)) {
-			if ($this->getEnabled()) {
-				HookRegistry::register('TemplateManager::display', array(&$this, 'callback'));
+  /**
+   * Called as a plugin is registered to the registry
+   * @param $category String Name of category plugin was registered to
+   * @return boolean True iff plugin initialized successfully; if false,
+   *  the plugin will not be registered.
+   */
+  function register($category, $path) {
+    $success = parent::register($category, $path);
+    if ($success && $this->getEnabled()) {
+      HookRegistry::register('TemplateManager::display', array($this, 'redirectRequest'));
+    }
+    return $success;
+  }
+  
+  function getDisplayName() {
+    return __('plugins.generic.LLTNavigation.name');
+  }
 
-			}
-			return true;
-		}
-		return true;
-	}
+  function getDescription() {
+    return __('plugins.generic.LLTNavigation.description');
+  }
+  
+  /**
+   * Hook callback function
+   */
+  function redirectRequest($hookName, $args) {
+    $templateManager =& $args[0];
+    $template =& $args[1];
 
-	/**
-	 * Hook callback function for TemplateManager::display
-	 * @param $hookName string
-	 * @param $args array
-	 * @return boolean
-	 */
-	function callback($hookName, $args) {
+    $page = Request::getRequestedPage();
+    $user = Request::getUser();
 
-                $templateManager =& $args[0];
-                $template =& $args[1];
+    if (!$user || $user->getUsername() != 'administrator' ) {
+      if ($page == 'user' || $page == 'about') {
+        Request::redirectUrl('http://www.lltjournal.ca/index.php/llt');
+      }
+    }
+    
+    return false;
+  }
 
-                $page = Request::getRequestedPage();
-                $user = Request::getUser();
-
-                if (!$user || $user->getUsername() != 'administrator' ) {
-                    if ($page == 'user' || $page == 'about') {
-                        Request::redirectUrl('http://www.lltjournal.ca/index.php/llt');
-                    }
-                }
-                return false;
-	}
-
-	/**
-	 * Get the symbolic name of this plugin
-	 * @return string
-	 */
-	function getName() {
-		return 'LLTNavigationPlugin';
-	}
-
-	/**
-	 * Get the display name of this plugin
-	 * @return string
-	 */
-	function getDisplayName() {
-		return Locale::translate('plugins.generic.LLTNavigation.name');
-	}
-
-	/**
-	 * Get the description of this plugin
-	 * @return string
-	 */
-	function getDescription() {
-		return Locale::translate('plugins.generic.LLTNavigation.description');
-	}
-
-	/**
-	 * Check whether or not this plugin is enabled
-	 * @return boolean
-	 */
-	function getEnabled() {
-		$journal =& Request::getJournal();
-		$journalId = $journal?$journal->getJournalId():0;
-		return $this->getSetting($journalId, 'enabled');
-	}
-
-	/**
-	 * Get a list of available management verbs for this plugin
-	 * @return array
-	 */
-	function getManagementVerbs() {
-		return parent::getManagementVerbs($verbs);
-	}
-
-	/**
-	 * Execute a management verb on this plugin
-	 * @param $verb string
-	 * @param $args array
-	 * @return boolean
-	 */
-	function manage($verb, $args, &$message) {
-		if (!parent::manage($verb, $args, $message)) return false;
-		$journal =& Request::getJournal();
-	}
 }
 
 ?>
