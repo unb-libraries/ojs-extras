@@ -80,7 +80,7 @@ class CRKNPlugin extends GenericPlugin {
         $journals =& $journals->toArray();
         $crknJournalIds = array();
         foreach ($journals as $journal) {
-          if ($pluginSettingsDao->getSetting($journal->getId(), 'CRKNPlugin', 'CRKNJournal') == '1') {
+          if ($pluginSettingsDao->getSetting($journal->getId(), 'crknPlugin', 'CRKNJournal') == '1') {
             $crknJournalIds[] = $journal->getId();
           }
         }
@@ -100,8 +100,8 @@ class CRKNPlugin extends GenericPlugin {
    * @param $messageParams array Parameters for the message key
    * @return boolean
    */
-  function manage($verb, $args, &$message, &$messageParams) {
-    if (!parent::manage($verb, $args, $message, $messageParams)) return false;
+  function manage($verb, $args, &$message) {
+    if (!parent::manage($verb, $args, $message)) return false;
     
     switch ($verb) {
       case 'settings':
