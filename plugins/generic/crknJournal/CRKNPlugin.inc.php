@@ -13,7 +13,7 @@ class CRKNPlugin extends GenericPlugin {
   function register($category, $path) {
     $success = parent::register($category, $path);
     if ($success && $this->getEnabled()) {
-      HookRegistry::register('OAIDAO::_getRecords', array($this, 'removeFromEruditOAI'));
+      HookRegistry::register('OAIDAO::_getRecords', array($this, 'filterEruditOAI'));
     }
     return $success;
   }
@@ -66,7 +66,7 @@ class CRKNPlugin extends GenericPlugin {
   /**
    * Hook callback function 
    */
-  function callbackRemoveFromEruditOAI($hookName, $params) {
+  function filterEruditOAI($hookName, $params) {
     $sql       =& $params[0];
     $sqlParams =& $params[1];
     $value     =& $params[2];
