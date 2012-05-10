@@ -507,14 +507,15 @@
   
   <xd:doc scope="component">
     <xd:desc>
-      <xd:p>Block text: paragraph 'alinea'</xd:p>
+      <xd:p>Block text: paragraph alinea</xd:p>
     </xd:desc>
   </xd:doc>
   <xsl:template match="para/alinea">
     <p>
-    	<xsl:if test="exists(../no)">
-    		<span class="no"><xsl:value-of select="../no"/></span><xsl:text> </xsl:text>
-    	</xsl:if>
+      <!-- Include paragraph number, if it exists and this is the first <alinea/> child -->  
+      <xsl:if test=".=../alinea[position()=1] and exists(../no)">
+        <span class="no"><xsl:value-of select="../no"/></span><xsl:text> </xsl:text>
+      </xsl:if>
       <xsl:apply-templates/>
     </p>
   </xsl:template>
