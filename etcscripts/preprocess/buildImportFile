@@ -134,7 +134,7 @@ class OJSIssue extends OJSImportable {
   /** OJS-importable XML */
   /** @override */
   protected function get_xml_document() {
-    $document = new DOMDocument(); 
+    $document = new DOMDocument('1.0', 'utf-8'); 
     
     $issues_node = $document->appendChild($document->createElement('issues'));
     $issue_node = $issues_node->appendChild($document->createElement('issue'));
@@ -158,7 +158,7 @@ class OJSIssue extends OJSImportable {
         $document->importNode($section->get_xml_document(), TRUE)
       );
     }
-    
+
     return $issues_node;
   }
 
@@ -174,17 +174,18 @@ class OJSIssue extends OJSImportable {
         self::OJS_SYSTEM_ID
       );
 
-    $document = 
-      $this->get_dom_implementation()->createDocument(NULL, NULL, $doctype);
+    $document = $this->get_dom_implementation()->createDocument(NULL, NULL, $doctype);
 
     // Import node with deep cloning = TRUE
-    $document->appendChild(
-      $document->importNode($this->get_xml_document(), TRUE)
-    );
+//    $document->appendChild(
+//      $document->importNode($this->get_xml_document(), TRUE)
+//    );
+    // Appending an imported node encodes non-ASCII chars as entities. Loading XML doesn't.
+    $document->loadXML($this->get_xml_document()->ownerDocument->saveXML());
     
     // Hack to preserve CDATA sections. 
     $document_xml = preg_replace("/&lt;!\[CDATA\[&lt;(\/?([^&]+?))&gt;\]\]&gt;/s", "<![CDATA[<$1>]]>", $document->saveXML());
-
+    
     return $document_xml;
   }
 }
@@ -239,7 +240,7 @@ class OJSIssueSection extends OJSImportable {
   /** @override */
   protected function get_xml_document() {
     
-    $document = new DOMDocument(); 
+    $document = new DOMDocument('1.0', 'utf-8'); 
     $section_node = $document->appendChild($document->createElement('section'));
 
     // Section title and ID 
@@ -406,17 +407,17 @@ class OJSArticle extends OJSImportable {
   /** @override */
   protected function get_xml_document() {
     
-    $document = new DOMDocument(); 
+    $document = new DOMDocument('1.0', 'utf-8'); 
     
     // The article
     $article_node = $document->appendChild($document->createElement('article'));
 
     // Article title
-    $article_node->appendChild( $this->create_text_node($article_node, 'title', $this->get_title()) );
+    $article_node->appendChild( $this->create_text_node($article_node, 'title', str_replace('&', '&amp;', $this->get_title())) );
     
     // One or more abstracts
     foreach ($this->get_abstracts() as $lang => $text) {
-      $abstract_node = $document->createElement('abstract', $text);
+      $abstract_node = $document->createElement('abstract', str_replace('&', '&amp;', $text));
       $abstract_node->setAttribute('locale', $lang);
       $article_node->appendChild($abstract_node);      
     }    
@@ -540,7 +541,7 @@ class OJSAuthor extends OJSImportable {
   
   /** @override */
   protected function get_xml_document() {
-    $document = new DOMDocument(); 
+    $document = new DOMDocument('1.0', 'utf-8'); 
     $author_node = $document->appendChild($document->createElement('author')); 
     
     // firstname, middlename, lastname  
@@ -617,8 +618,9 @@ class EruditUnmarshaller {
   
   function __construct($xml) {
     // Create a temporary DOM from source XML
-    $dom = new DOMDocument();
+    $dom = new DOMDocument('1.0', 'utf-8');
     $dom->loadXML($xml);
+
         
     // Schema or DTD XML?
     $node_list = $dom->getElementsByTagName('dtd');
@@ -632,14 +634,14 @@ class EruditUnmarshaller {
     
     // Get schema- or DTD-happy XSL to transform some Erudit elements to HTML
     // markup, preserved in CDATA sections
-    $xsl_dom = new DOMDocument();
+    $xsl_dom = new DOMDocument('1.0', 'utf-8');
     $xsl_dom->loadXML($this->_get_markup_preservation_stylesheet());
     $processor = new XSLTProcessor();
     $processor->importStylesheet($xsl_dom);
     
     // Transform & store
     $this->dom = $processor->transformToDoc($dom);
-    
+
     // Create an XPath object to locate values to populate OJSArticle object
     $this->xpath_dom = new DOMXPath($this->dom);
     $this->xpath_dom->registerNamespace($this->ns, $this->ns_uri);
