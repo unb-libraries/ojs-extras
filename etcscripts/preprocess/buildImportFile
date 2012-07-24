@@ -167,22 +167,14 @@ class OJSIssue extends OJSImportable {
     */
   /** @override */
   public function get_xml() {
-    $doctype = 
-      $this->get_dom_implementation()->createDocumentType(
-        'issues',
-        self::OJS_PUBLIC_ID,
-        self::OJS_SYSTEM_ID
-      );
+    $document = $this->get_dom_implementation()->createDocument();
 
-    $document = $this->get_dom_implementation()->createDocument(NULL, NULL, $doctype);
-
-    // Import node with deep cloning = TRUE
-//    $document->appendChild(
-//      $document->importNode($this->get_xml_document(), TRUE)
-//    );
     // Appending an imported node encodes non-ASCII chars as entities. Loading XML doesn't.
     $document->loadXML($this->get_xml_document()->ownerDocument->saveXML());
-    
+
+    $doctype = $this->get_dom_implementation()->createDocumentType( 'issues', self::OJS_PUBLIC_ID, self::OJS_SYSTEM_ID );
+    $document->insertBefore( $doctype, $document->documentElement );
+
     // Hack to preserve CDATA sections. 
     $document_xml = preg_replace("/&lt;!\[CDATA\[&lt;(\/?([^&]+?))&gt;\]\]&gt;/s", "<![CDATA[<$1>]]>", $document->saveXML());
     
