@@ -771,7 +771,7 @@ class EruditUnmarshaller {
         preg_replace(
           "/[[:punct:][:space:]]/",   // remove whitespace & punct.
           "",
-          iconv('UTF-8', 'ASCII//IGNORE', $this->_get_section_title())  // after down-coding to ASCII
+          iconv('UTF-8', 'ASCII//TRANSLIT', $this->_get_section_title())  // after down-coding to ASCII
         )
       );
     
