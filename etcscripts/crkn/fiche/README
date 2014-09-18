@@ -39,7 +39,7 @@ before the OAI service was implemented.
 3.  From [crkn-dir], run Perl script called 'buildFicheFile'.  It accepts the
     path to an XML file as an argument.  Run the script as part of a find command:
 
-    find . -name "*.xml" -exec perl /usr/local/bin/buildFicheFile {} \;
+    find . -name "*.xml" -exec perl ~/bin/crkn/fiche/buildFicheFile {} \;
 
 4.  The Perl scripts creates a file in the XML directory for each article to be
     sent to CRKN, with a Fiche.xml extension. E.g., for an article file named
